@@ -4,6 +4,7 @@ import { Image, File, BarChart2, Mic, Send, X, Plus } from 'lucide-react';
 import { auth, db } from '../lib/firebase';
 import { collection, addDoc } from 'firebase/firestore';
 import { useQueryClient } from '@tanstack/react-query';
+import { PollCreator } from './PollCreator';
 
 const IMGBB_API_KEY = 'твой_ключ_здесь';
 
@@ -13,6 +14,7 @@ export const CreatePostBar: React.FC = () => {
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
+  const [showPollCreator, setShowPollCreator] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
 
@@ -60,11 +62,15 @@ export const CreatePostBar: React.FC = () => {
 
     setLoading(true);
     try {
-      const mediaUrls = await Promise.all(mediaFiles.map(file => uploadFile(file)));
-      const media = mediaUrls.map(url => ({ type: 'image' as const, url }));
+      let media: { type: string; url: string }[] = [];
+
+      if (mediaFiles.length > 0) {
+        const mediaUrls = await Promise.all(mediaFiles.map(file => uploadFile(file)));
+        media = mediaUrls.map(url => ({ type: 'image' as const, url }));
+      }
 
       await addDoc(collection(db, 'posts'), {
-        text,
+        text: text.trim(),
         media,
         authorId: auth.currentUser.uid,
         authorName: auth.currentUser.displayName || 'Пользователь',
@@ -89,8 +95,8 @@ export const CreatePostBar: React.FC = () => {
   };
 
   const handlePoll = () => {
-    alert('Опросы будут доступны в следующем обновлении!');
     setShowAttachmentMenu(false);
+    setShowPollCreator(true);
   };
 
   const handleAudio = () => {
@@ -99,111 +105,122 @@ export const CreatePostBar: React.FC = () => {
   };
 
   return (
-    <div className="glass border-t border-white/10 p-3">
-      <div className="max-w-2xl mx-auto">
-        {previewUrls.length > 0 && (
-          <div className="mb-2 flex gap-2 overflow-x-auto pb-1">
-            {previewUrls.map((url, index) => (
-              <div key={index} className="relative flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden">
-                <img src={url} alt="" className="w-full h-full object-cover" />
-                <button
-                  onClick={() => removeMedia(index)}
-                  className="absolute top-0.5 right-0.5 p-0.5 bg-black/60 rounded-full text-white"
-                >
-                  <X size={12} />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
+    <>
+      <div className="glass border-t border-[var(--border-color)] p-3">
+        <div className="max-w-2xl mx-auto">
+          {previewUrls.length > 0 && (
+            <div className="mb-2 flex gap-2 overflow-x-auto pb-1">
+              {previewUrls.map((url, index) => (
+                <div key={index} className="relative flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden">
+                  <img src={url} alt="" className="w-full h-full object-cover" />
+                  <button
+                    onClick={() => removeMedia(index)}
+                    className="absolute top-0.5 right-0.5 p-0.5 bg-black/60 rounded-full text-white"
+                  >
+                    <X size={12} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
 
-        <form onSubmit={handleSubmit} className="flex items-end gap-2">
-          <div className="relative">
+          <form onSubmit={handleSubmit} className="flex items-end gap-2">
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowAttachmentMenu(!showAttachmentMenu)}
+                className="p-2 rounded-full text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-white/10 transition-colors"
+              >
+                <Plus size={22} />
+              </button>
+
+              {showAttachmentMenu && (
+                <div className="absolute bottom-full left-0 mb-2 w-48 bg-[var(--bg-secondary)] backdrop-blur-xl rounded-xl shadow-xl border border-[var(--border-color)] overflow-hidden z-20">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      fileInputRef.current?.setAttribute('accept', 'image/*,video/*');
+                      fileInputRef.current?.click();
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-sm text-[var(--text-primary)] hover:bg-white/10"
+                  >
+                    <Image size={18} />
+                    Фото или видео
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      fileInputRef.current?.setAttribute('accept', '*/*');
+                      fileInputRef.current?.click();
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-sm text-[var(--text-primary)] hover:bg-white/10"
+                  >
+                    <File size={18} />
+                    Файл
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handlePoll}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-sm text-[var(--text-primary)] hover:bg-white/10"
+                  >
+                    <BarChart2 size={18} />
+                    Опрос
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleAudio}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-sm text-[var(--text-primary)] hover:bg-white/10"
+                  >
+                    <Mic size={18} />
+                    Аудио
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <div className="flex-1 bg-white/10 backdrop-blur-md rounded-2xl px-4 py-2 max-h-32 overflow-y-auto">
+              <textarea
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                placeholder="Написать сообщение..."
+                className="w-full bg-transparent text-[var(--text-primary)] placeholder-[var(--text-secondary)] resize-none outline-none text-sm"
+                rows={1}
+                style={{ minHeight: '24px', maxHeight: '120px' }}
+                onInput={(e) => {
+                  const target = e.target as HTMLTextAreaElement;
+                  target.style.height = 'auto';
+                  target.style.height = Math.min(target.scrollHeight, 120) + 'px';
+                }}
+              />
+            </div>
+
             <button
-              type="button"
-              onClick={() => setShowAttachmentMenu(!showAttachmentMenu)}
-              className="p-2 rounded-full text-[#AAAAAA] hover:text-white hover:bg-white/10 transition-colors"
+              type="submit"
+              disabled={loading || (!text.trim() && mediaFiles.length === 0)}
+              className="p-2 rounded-full text-blue-500 hover:bg-blue-500/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
-              <Plus size={22} />
+              <Send size={22} />
             </button>
 
-            {showAttachmentMenu && (
-              <div className="absolute bottom-full left-0 mb-2 w-48 bg-white/10 backdrop-blur-xl rounded-xl shadow-xl border border-white/10 overflow-hidden z-20">
-                <button
-                  type="button"
-                  onClick={() => {
-                    fileInputRef.current?.setAttribute('accept', 'image/*,video/*');
-                    fileInputRef.current?.click();
-                  }}
-                  className="w-full flex items-center gap-3 px-4 py-3 text-sm text-white hover:bg-white/10"
-                >
-                  <Image size={18} />
-                  Фото или видео
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    fileInputRef.current?.setAttribute('accept', '*/*');
-                    fileInputRef.current?.click();
-                  }}
-                  className="w-full flex items-center gap-3 px-4 py-3 text-sm text-white hover:bg-white/10"
-                >
-                  <File size={18} />
-                  Файл
-                </button>
-                <button
-                  type="button"
-                  onClick={handlePoll}
-                  className="w-full flex items-center gap-3 px-4 py-3 text-sm text-white hover:bg-white/10"
-                >
-                  <BarChart2 size={18} />
-                  Опрос
-                </button>
-                <button
-                  type="button"
-                  onClick={handleAudio}
-                  className="w-full flex items-center gap-3 px-4 py-3 text-sm text-white hover:bg-white/10"
-                >
-                  <Mic size={18} />
-                  Аудио
-                </button>
-              </div>
-            )}
-          </div>
-
-          <div className="flex-1 bg-white/10 backdrop-blur-md rounded-2xl px-4 py-2 max-h-32 overflow-y-auto">
-            <textarea
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              placeholder="Написать сообщение..."
-              className="w-full bg-transparent text-white placeholder-[#AAAAAA] resize-none outline-none text-sm"
-              rows={1}
-              style={{ minHeight: '24px', maxHeight: '120px' }}
-              onInput={(e) => {
-                const target = e.target as HTMLTextAreaElement;
-                target.style.height = 'auto';
-                target.style.height = Math.min(target.scrollHeight, 120) + 'px';
-              }}
+            <input
+              type="file"
+              ref={fileInputRef}
+              className="hidden"
+              multiple
+              onChange={handleFileSelect}
             />
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading || (!text.trim() && mediaFiles.length === 0)}
-            className="p-2 rounded-full text-blue-500 hover:bg-blue-500/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-          >
-            <Send size={22} />
-          </button>
-
-          <input
-            type="file"
-            ref={fileInputRef}
-            className="hidden"
-            multiple
-            onChange={handleFileSelect}
-          />
-        </form>
+          </form>
+        </div>
       </div>
-    </div>
+
+      {showPollCreator && (
+        <PollCreator
+          onClose={() => setShowPollCreator(false)}
+          onCreated={() => {
+            queryClient.invalidateQueries({ queryKey: ['posts'] });
+          }}
+        />
+      )}
+    </>
   );
 };

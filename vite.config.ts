@@ -3,5 +3,13 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
-  base: './', // важно для продакшена
+  base: './',
+  build: {
+    rollupOptions: {
+      input: {
+        main: 'index.html',
+        sw: 'public/sw.js'
+      }
+    }
+  }
 })

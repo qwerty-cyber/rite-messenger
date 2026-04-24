@@ -3,24 +3,31 @@ import React, { useState, useRef, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { PostCard } from "./PostCard";
 import { CreatePostBar } from "./CreatePostBar";
+import { PollDisplay } from "./PollDisplay";
 import { usePosts } from "../hooks/usePosts";
-import { auth } from "../lib/firebase";
+import { db } from "../lib/firebase";
+import { collection, query, orderBy, limit, onSnapshot } from "firebase/firestore";
 
 type FeedTab = "subscriptions" | "recommendations";
 
 export const Feed: React.FC = () => {
   const [activeTab] = useState<FeedTab>("subscriptions");
+  const [polls, setPolls] = useState<any[]>([]);
   const observerRef = useRef<IntersectionObserver | null>(null);
 
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, isError } =
     usePosts(activeTab);
 
-  // Вывод uid текущего пользователя в консоль (можно удалить после использования)
   useEffect(() => {
-    const user = auth.currentUser;
-    if (user) {
-      console.log('Мой uid:', user.uid);
-    }
+    const q = query(
+      collection(db, 'polls'),
+      orderBy('createdAt', 'desc'),
+      limit(10)
+    );
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setPolls(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+    return () => unsubscribe();
   }, []);
 
   const lastPostRef = useCallback(
@@ -37,15 +44,32 @@ export const Feed: React.FC = () => {
     [isLoading, isFetchingNextPage, hasNextPage, fetchNextPage]
   );
 
+  const allPosts = data?.pages.flatMap(page => page.posts) || [];
+
+  const pollItems = polls.map(poll => ({
+    id: poll.id,
+    isPoll: true,
+    pollData: poll,
+    createdAt: poll.createdAt?.toDate() || new Date()
+  }));
+
+  const postItems = allPosts.map(post => ({
+    id: post.id,
+    isPoll: false,
+    postData: post,
+    createdAt: new Date(post.publishedAt)
+  }));
+
+  const allItems = [...pollItems, ...postItems].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+
   return (
     <div className="flex flex-col h-full">
-      {/* Прокручиваемая область с постами */}
-      <div className="flex-1 overflow-y-auto px-4 py-6">
-        <div className="max-w-2xl mx-auto space-y-4">
+      <div className="flex-1" style={{ overflowY: 'auto', overflowX: 'visible' }}>
+        <div className="max-w-2xl mx-auto px-4 py-6 space-y-4">
           {isLoading ? (
             <>
               {[...Array(3)].map((_, i) => (
-                <div key={i} className="bg-white/5 rounded-2xl p-4 animate-pulse">
+                <div key={i} className="glass p-4 rounded-2xl animate-pulse">
                   <div className="flex items-center gap-3 mb-3">
                     <div className="w-10 h-10 rounded-full bg-white/10" />
                     <div className="flex-1">
@@ -61,7 +85,7 @@ export const Feed: React.FC = () => {
               ))}
             </>
           ) : isError ? (
-            <div className="text-center py-8 text-[#AAAAAA]">Ошибка загрузки</div>
+            <div className="text-center py-8 text-[var(--text-secondary)]">Ошибка загрузки</div>
           ) : (
             <AnimatePresence mode="wait">
               <motion.div
@@ -69,26 +93,38 @@ export const Feed: React.FC = () => {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.3, ease: 'easeOut' }}
                 className="space-y-4"
               >
-                {data?.pages.map((page, pageIndex) => (
-                  <React.Fragment key={pageIndex}>
-                    {page.posts.map((post, index) => {
-                      const isLast = pageIndex === data.pages.length - 1 && index === page.posts.length - 1;
-                      return (
-                        <div key={post.id} ref={isLast ? lastPostRef : undefined}>
-                          <PostCard post={post} />
-                        </div>
-                      );
-                    })}
-                  </React.Fragment>
-                ))}
+                {allItems.map((item, index) => {
+                  const isLast = index === allItems.length - 1;
+
+                  if (item.isPoll) {
+                    return (
+                      <div key={`poll-${item.id}`}>
+                        <PollDisplay pollId={item.id} />
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div key={item.id} ref={isLast ? lastPostRef : undefined}>
+                      <PostCard post={item.postData} />
+                    </div>
+                  );
+                })}
+
+                {allItems.length === 0 && (
+                  <div className="text-center py-8 text-[var(--text-secondary)]">
+                    Пока нет постов. Будьте первым!
+                  </div>
+                )}
               </motion.div>
             </AnimatePresence>
           )}
 
           {isFetchingNextPage && (
-            <div className="bg-white/5 rounded-2xl p-4 animate-pulse">
+            <div className="glass p-4 rounded-2xl animate-pulse">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-white/10" />
                 <div className="h-4 w-24 bg-white/10 rounded" />
@@ -98,7 +134,6 @@ export const Feed: React.FC = () => {
         </div>
       </div>
 
-      {/* Нижняя панель создания поста */}
       <CreatePostBar />
     </div>
   );

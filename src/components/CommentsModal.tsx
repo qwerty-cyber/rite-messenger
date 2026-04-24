@@ -1,5 +1,6 @@
 // CommentsModal.tsx
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Send } from 'lucide-react';
 import { db, auth } from '../lib/firebase';
 import {
@@ -57,6 +58,23 @@ export const CommentsModal: React.FC<CommentsModalProps> = ({ postId, onClose })
     commentsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [comments]);
 
+  // Закрытие по Escape
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
+  // Блокировка скролла на body
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, []);
+
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newComment.trim() || !currentUser) return;
@@ -84,15 +102,27 @@ export const CommentsModal: React.FC<CommentsModalProps> = ({ postId, onClose })
     }
   };
 
-  return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-[#1C1C1E] rounded-2xl w-full max-w-md h-[600px] flex flex-col shadow-xl">
+  // Рендерим через портал прямо в body
+  return createPortal(
+    <>
+      {/* Затемнение фона */}
+      <div
+        className="fixed inset-0 bg-black/60 backdrop-blur-sm"
+        style={{ zIndex: 99999 }}
+        onClick={onClose}
+      />
+
+      {/* Модальное окно по центру экрана */}
+      <div
+        className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-[var(--bg-secondary)] rounded-2xl w-[95%] max-w-md max-h-[85vh] flex flex-col shadow-2xl"
+        style={{ zIndex: 99999 }}
+      >
         {/* Шапка */}
-        <div className="flex items-center justify-between p-4 border-b border-white/10">
-          <h3 className="text-white font-bold text-lg">Комментарии</h3>
+        <div className="flex items-center justify-between p-4 border-b border-[var(--border-color)] flex-shrink-0">
+          <h3 className="text-[var(--text-primary)] font-bold text-lg">Комментарии</h3>
           <button
             onClick={onClose}
-            className="p-1 rounded-full hover:bg-white/10 text-[#AAAAAA] hover:text-white transition-colors"
+            className="p-1 rounded-full hover:bg-white/10 text-[var(--text-secondary)]"
           >
             <X size={20} />
           </button>
@@ -101,7 +131,7 @@ export const CommentsModal: React.FC<CommentsModalProps> = ({ postId, onClose })
         {/* Список комментариев */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {comments.length === 0 ? (
-            <div className="text-center text-[#AAAAAA] py-8">
+            <div className="text-center text-[var(--text-secondary)] py-8">
               Пока нет комментариев. Будьте первым!
             </div>
           ) : (
@@ -113,13 +143,13 @@ export const CommentsModal: React.FC<CommentsModalProps> = ({ postId, onClose })
                   size="sm"
                 />
                 <div className="flex-1 bg-white/5 rounded-2xl px-4 py-2">
-                  <div className="font-medium text-white text-sm">
+                  <div className="font-medium text-[var(--text-primary)] text-sm">
                     {comment.authorName}
                   </div>
-                  <div className="text-white/90 text-sm mt-0.5 break-words">
+                  <div className="text-[var(--text-primary)] opacity-90 text-sm mt-0.5 break-words">
                     {comment.text}
                   </div>
-                  <div className="text-[10px] text-[#AAAAAA] mt-1">
+                  <div className="text-[10px] text-[var(--text-secondary)] mt-1">
                     {comment.createdAt?.toDate().toLocaleTimeString([], {
                       hour: '2-digit',
                       minute: '2-digit'
@@ -133,23 +163,25 @@ export const CommentsModal: React.FC<CommentsModalProps> = ({ postId, onClose })
         </div>
 
         {/* Поле ввода */}
-        <form onSubmit={handleSend} className="p-4 border-t border-white/10 flex gap-2">
+        <form onSubmit={handleSend} className="p-4 border-t border-[var(--border-color)] flex gap-2 flex-shrink-0">
           <input
             type="text"
             value={newComment}
             onChange={(e) => setNewComment(e.target.value)}
             placeholder="Написать комментарий..."
-            className="flex-1 bg-white/10 rounded-full px-4 py-2 text-white placeholder-[#AAAAAA] focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="flex-1 bg-white/10 rounded-full px-4 py-2 text-[var(--text-primary)] placeholder-[var(--text-secondary)] focus:outline-none focus:ring-2 focus:ring-blue-500"
+            autoFocus
           />
           <button
             type="submit"
             disabled={loading || !newComment.trim()}
-            className="p-2 rounded-full bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="p-2 rounded-full bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex-shrink-0"
           >
             <Send size={18} />
           </button>
         </form>
       </div>
-    </div>
+    </>,
+    document.body
   );
 };

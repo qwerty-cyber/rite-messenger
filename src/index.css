@@ -2,31 +2,100 @@
 @tailwind components;
 @tailwind utilities;
 
-@layer base {
-  body {
-    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
-    background-attachment: fixed;
-    min-height: 100vh;
-  }
+:root {
+  --bg-primary: #0F0F0F;
+  --bg-secondary: #1C1C1E;
+  --bg-card: rgba(255, 255, 255, 0.05);
+  --bg-card-hover: rgba(255, 255, 255, 0.1);
+  --text-primary: #FFFFFF;
+  --text-secondary: #AAAAAA;
+  --border-color: rgba(255, 255, 255, 0.1);
+  --gradient-start: #1a1a2e;
+  --gradient-mid: #16213e;
+  --gradient-end: #0f3460;
+}
 
-  .glass {
-    background: rgba(255, 255, 255, 0.05);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-  }
+.light {
+  --bg-primary: #F2F2F7;
+  --bg-secondary: #FFFFFF;
+  --bg-card: rgba(0, 0, 0, 0.03);
+  --bg-card-hover: rgba(0, 0, 0, 0.06);
+  --text-primary: #000000;
+  --text-secondary: #8E8E93;
+  --border-color: rgba(0, 0, 0, 0.1);
+  --gradient-start: #e8e8f0;
+  --gradient-mid: #d0d0e0;
+  --gradient-end: #c0c0d8;
+}
 
-  .glass-hover:hover {
-    background: rgba(255, 255, 255, 0.1);
-    border-color: rgba(255, 255, 255, 0.2);
-  }
+body {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  transition: background 0.3s, color 0.3s;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
 
-  .glass-card {
-    background: rgba(255, 255, 255, 0.08);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 24px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+.glass {
+  background: var(--bg-card);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--border-color);
+}
+
+.glass-hover:hover {
+  background: var(--bg-card-hover);
+}
+
+/* Кастомный скроллбар */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Светлая тема */
+.light ::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+}
+
+.light ::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+}
+
+.light * {
+  scrollbar-color: rgba(0, 0, 0, 0.15) transparent;
+}
+
+/* Анимация пульсации для скелетонов */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
   }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.animate-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }

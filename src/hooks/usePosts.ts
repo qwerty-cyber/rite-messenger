@@ -57,7 +57,7 @@ const fetchPosts = async ({
       channel: {
         id: data.authorId, // или можно оставить "default", но лучше использовать authorId
         name: data.authorName || "Пользователь",
-        avatar: data.authorPhotoURL || `https://i.pravatar.cc/150?u=${data.authorId}`,
+        avatar: data.authorPhotoURL || null,
       },
       text: data.text,
       publishedAt: data.createdAt?.toDate().toISOString() || new Date().toISOString(),

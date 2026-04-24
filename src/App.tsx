@@ -1,7 +1,8 @@
 // App.tsx
 import { useEffect, useState } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
-import { Home, Search, MessageCircle, User, LogOut, Shield, Menu, X, Users } from 'lucide-react';
+import { Home, Search, MessageCircle, User, LogOut, Shield, Menu, X, Users, Bookmark, Sun, Moon } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { Feed } from './components/Feed';
 import { Auth } from './components/Auth';
 import { Profile } from './components/Profile';
@@ -11,6 +12,7 @@ import { ChatRoom } from './components/ChatRoom';
 import { PublicProfile } from './components/PublicProfile';
 import { AdminPanel } from './components/AdminPanel';
 import { Friends } from './components/Friends';
+import { Bookmarks } from './components/Bookmarks';
 import { auth } from './lib/firebase';
 import { db } from './lib/firebase';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
@@ -29,6 +31,23 @@ function AppContent() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [pendingRequests, setPendingRequests] = useState(0);
   const { isAdmin } = useAuth();
+  const [theme, setTheme] = useState<'dark' | 'light'>(
+    (localStorage.getItem('theme') as 'dark' | 'light') || 'dark'
+  );
+
+  // Применение темы
+  useEffect(() => {
+    if (theme === 'light') {
+      document.documentElement.classList.add('light');
+    } else {
+      document.documentElement.classList.remove('light');
+    }
+    localStorage.setItem('theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme(prev => prev === 'dark' ? 'light' : 'dark');
+  };
 
   useEffect(() => {
     if (Notification.permission !== 'granted' && Notification.permission !== 'denied') {
@@ -58,14 +77,41 @@ function AppContent() {
     return () => unsubscribe();
   }, [firebaseUser]);
 
+  // Горячие клавиши
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.key === 'n') {
+        e.preventDefault();
+        navigate('/');
+        setTimeout(() => {
+          const textarea = document.querySelector('textarea');
+          textarea?.focus();
+        }, 100);
+      }
+      if (e.ctrlKey && e.key === 'm') {
+        e.preventDefault();
+        navigate('/messages');
+      }
+      if (e.ctrlKey && e.key === 'p') {
+        e.preventDefault();
+        navigate('/profile');
+      }
+      if (e.key === 'Escape') {
+        setSidebarOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [navigate]);
+
   useEffect(() => {
     setSidebarOpen(false);
   }, [location.pathname]);
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-[#1a1a2e] via-[#16213e] to-[#0f3460] flex items-center justify-center">
-        <div className="text-white text-xl">Загрузка...</div>
+      <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center">
+        <div className="text-[var(--text-primary)] text-xl">Загрузка...</div>
       </div>
     );
   }
@@ -79,6 +125,7 @@ function AppContent() {
     { icon: Search, label: 'Поиск', path: '/search' },
     { icon: MessageCircle, label: 'Сообщения', path: '/messages' },
     { icon: Users, label: 'Друзья', path: '/friends' },
+    { icon: Bookmark, label: 'Закладки', path: '/bookmarks' },
     { icon: User, label: 'Профиль', path: '/profile' },
   ];
 
@@ -88,8 +135,7 @@ function AppContent() {
   };
 
   return (
-    <div className="flex h-screen text-white bg-gradient-to-br from-[#1a1a2e] via-[#16213e] to-[#0f3460]">
-      {/* Затемнение фона при открытом мобильном меню */}
+    <div className="flex h-screen text-[var(--text-primary)] bg-[var(--bg-primary)]">
       {sidebarOpen && (
         <div
           className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 lg:hidden"
@@ -97,19 +143,17 @@ function AppContent() {
         />
       )}
 
-      {/* Боковая панель с glass-эффектом */}
       <aside
         className={`
           fixed lg:static inset-y-0 left-0 z-50
           w-64 
-          bg-white/5 backdrop-blur-xl border-r border-white/10
+          bg-[var(--bg-secondary)] backdrop-blur-xl border-r border-[var(--border-color)]
           flex flex-col
           transition-transform duration-300
           ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
         `}
       >
-        {/* Заголовок сайдбара */}
-        <div className="p-4 border-b border-white/10 flex items-center justify-between">
+        <div className="p-4 border-b border-[var(--border-color)] flex items-center justify-between">
           <h1 className="text-xl font-bold tracking-tight bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
             rite
           </h1>
@@ -121,7 +165,6 @@ function AppContent() {
           </button>
         </div>
 
-        {/* Навигация */}
         <nav className="flex-1 py-4 space-y-1 overflow-y-auto">
           {navItems.map((item) => (
             <button
@@ -130,12 +173,11 @@ function AppContent() {
               className={`w-full flex items-center gap-3 px-4 py-3 transition-all duration-300 ${
                 isActive(item.path)
                   ? 'bg-blue-500/20 text-blue-400 border-l-2 border-blue-500'
-                  : 'text-[#AAAAAA] hover:bg-white/5 hover:text-white'
+                  : 'text-[var(--text-secondary)] hover:bg-white/5 hover:text-white'
               }`}
             >
               <div className="relative">
                 <item.icon size={22} />
-                {/* Индикатор заявок в друзья */}
                 {item.path === '/friends' && pendingRequests > 0 && (
                   <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center text-[10px] font-bold">
                     {pendingRequests}
@@ -146,14 +188,13 @@ function AppContent() {
             </button>
           ))}
 
-          {/* Админка */}
           {isAdmin && (
             <button
               onClick={() => navigate('/admin')}
               className={`w-full flex items-center gap-3 px-4 py-3 transition-all duration-300 ${
                 location.pathname === '/admin'
                   ? 'bg-red-500/20 text-red-400 border-l-2 border-red-500'
-                  : 'text-[#AAAAAA] hover:bg-white/5 hover:text-white'
+                  : 'text-[var(--text-secondary)] hover:bg-white/5 hover:text-white'
               }`}
             >
               <Shield size={22} />
@@ -162,8 +203,7 @@ function AppContent() {
           )}
         </nav>
 
-        {/* Профиль и выход */}
-        <div className="p-4 border-t border-white/10">
+        <div className="p-4 border-t border-[var(--border-color)]">
           <button
             onClick={() => navigate('/profile')}
             className="w-full flex items-center gap-3 p-2 rounded-xl hover:bg-white/5 transition-all mb-2"
@@ -173,12 +213,19 @@ function AppContent() {
               <div className="font-medium text-sm truncate">
                 {firebaseUser?.displayName || 'Пользователь'}
               </div>
-              <div className="text-xs text-[#AAAAAA] truncate">{firebaseUser?.email}</div>
+              <div className="text-xs text-[var(--text-secondary)] truncate">{firebaseUser?.email}</div>
             </div>
           </button>
           <button
+            onClick={toggleTheme}
+            className="w-full flex items-center gap-3 px-4 py-2 text-[var(--text-secondary)] hover:text-white hover:bg-white/5 rounded-xl transition-all mb-2"
+          >
+            {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
+            <span>{theme === 'dark' ? 'Светлая тема' : 'Тёмная тема'}</span>
+          </button>
+          <button
             onClick={() => auth.signOut()}
-            className="w-full flex items-center gap-3 px-4 py-2 text-[#AAAAAA] hover:text-white hover:bg-white/5 rounded-xl transition-all"
+            className="w-full flex items-center gap-3 px-4 py-2 text-[var(--text-secondary)] hover:text-white hover:bg-white/5 rounded-xl transition-all"
           >
             <LogOut size={20} />
             <span>Выйти</span>
@@ -186,10 +233,8 @@ function AppContent() {
         </div>
       </aside>
 
-      {/* Основной контент */}
-      <main className="flex-1 flex flex-col overflow-hidden w-full">
-        {/* Мобильный хедер */}
-        <div className="lg:hidden bg-white/5 backdrop-blur-xl border-b border-white/10 px-4 py-2 flex items-center gap-3">
+      <main className="flex-1 flex flex-col w-full">
+        <div className="lg:hidden bg-[var(--bg-secondary)] backdrop-blur-xl border-b border-[var(--border-color)] px-4 py-2 flex items-center gap-3">
           <button
             onClick={() => setSidebarOpen(true)}
             className="p-2 rounded-lg hover:bg-white/10"
@@ -201,21 +246,31 @@ function AppContent() {
           </h1>
         </div>
 
-        {/* Контент страницы */}
-        <div className="flex-1 overflow-hidden">
-          <Routes>
-            <Route path="/" element={<Feed />} />
-            <Route path="/profile" element={<Profile />} />
-            <Route path="/profile/:userId" element={<PublicProfile />} />
-            <Route path="/search" element={<SearchPage />} />
-            <Route path="/messages" element={<MessagesLayout />}>
-              <Route path=":chatId" element={<ChatRoom />} />
-            </Route>
-            <Route path="/friends" element={<Friends />} />
-            <Route path="/admin" element={<AdminPanel />} />
-            <Route path="*" element={<Navigate to="/" />} />
-          </Routes>
-        </div>
+        {/* Анимированные переходы между страницами */}
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={location.pathname}
+            initial={{ opacity: 0, x: 30 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -30 }}
+            transition={{ duration: 0.25, ease: 'easeInOut' }}
+            className="flex-1 overflow-hidden"
+          >
+            <Routes location={location}>
+              <Route path="/" element={<Feed />} />
+              <Route path="/profile" element={<Profile />} />
+              <Route path="/profile/:userId" element={<PublicProfile />} />
+              <Route path="/search" element={<SearchPage />} />
+              <Route path="/messages" element={<MessagesLayout />}>
+                <Route path=":chatId" element={<ChatRoom />} />
+              </Route>
+              <Route path="/friends" element={<Friends />} />
+              <Route path="/bookmarks" element={<Bookmarks />} />
+              <Route path="/admin" element={<AdminPanel />} />
+              <Route path="*" element={<Navigate to="/" />} />
+            </Routes>
+          </motion.div>
+        </AnimatePresence>
       </main>
     </div>
   );

@@ -20,6 +20,7 @@ export interface Post {
   commentsCount: number;   // <-- было comments: any[]
   shares: number;
   authorPhotoURL?: string;
+  pinned?: boolean;
 }
 
 export interface PostsResponse {

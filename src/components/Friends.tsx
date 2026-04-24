@@ -1,7 +1,7 @@
 // Friends.tsx
 import React, { useState, useEffect } from 'react';
 import { db, auth } from '../lib/firebase';
-import { collection, query, where, getDocs, updateDoc, doc, Timestamp, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, getDocs, updateDoc, doc, Timestamp, onSnapshot, addDoc } from 'firebase/firestore';
 import { Avatar } from './Avatar';
 import { useNavigate } from 'react-router-dom';
 import { UserCheck, Clock } from 'lucide-react';
@@ -87,6 +87,33 @@ export const Friends: React.FC = () => {
     });
   };
 
+  const handleWriteMessage = async (friendId: string) => {
+    if (!currentUser) return;
+
+    // Ищем существующий чат
+    const chatsQuery = query(
+      collection(db, 'chats'),
+      where('participants', 'array-contains', currentUser.uid)
+    );
+    const chatsSnapshot = await getDocs(chatsQuery);
+    const existingChat = chatsSnapshot.docs.find(doc => {
+      const data = doc.data();
+      return data.participants.includes(friendId);
+    });
+
+    if (existingChat) {
+      navigate(`/messages/${existingChat.id}`);
+    } else {
+      // Создаём новый чат
+      const newChat = await addDoc(collection(db, 'chats'), {
+        participants: [currentUser.uid, friendId],
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now(),
+      });
+      navigate(`/messages/${newChat.id}`);
+    }
+  };
+
   if (!currentUser) return null;
 
   return (
@@ -137,7 +164,7 @@ export const Friends: React.FC = () => {
                     <div className="text-sm text-[#AAAAAA]">@{friend.friendData.username || 'пользователь'}</div>
                   </div>
                   <button
-                    onClick={() => navigate('/messages')}
+                    onClick={() => handleWriteMessage(friend.friendId)}
                     className="px-3 py-2 bg-blue-500/20 text-blue-400 rounded-xl text-sm hover:bg-blue-500/30 transition-all"
                   >
                     Написать
