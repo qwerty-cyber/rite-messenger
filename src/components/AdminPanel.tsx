@@ -1,7 +1,7 @@
 // AdminPanel.tsx
 import React, { useEffect, useState } from 'react';
 import { db } from '../lib/firebase';
-import { collection, getDocs, deleteDoc, doc, updateDoc } from 'firebase/firestore';
+import { collection, getDocs, deleteDoc, doc, updateDoc, Timestamp } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { Trash2, ArrowLeft, Users, FileText, MessageCircle, Ban } from 'lucide-react';
@@ -50,8 +50,24 @@ export const AdminPanel: React.FC = () => {
 
   const toggleBan = async (userId: string, currentStatus: string) => {
     const newStatus = currentStatus === 'banned' ? 'active' : 'banned';
-    await updateDoc(doc(db, 'users', userId), { status: newStatus });
-    setUsers(prev => prev.map(u => u.id === userId ? { ...u, status: newStatus } : u));
+
+    try {
+      // Обновляем поле status в документе пользователя
+      await updateDoc(doc(db, 'users', userId), {
+        status: newStatus,
+        updatedAt: Timestamp.now()
+      });
+
+      // Обновляем локальный стейт
+      setUsers(prev => prev.map(u =>
+        u.id === userId ? { ...u, status: newStatus } : u
+      ));
+
+      console.log(`Пользователь ${userId}: статус изменён на ${newStatus}`);
+    } catch (error) {
+      console.error('Ошибка бана:', error);
+      alert('Не удалось забанить пользователя');
+    }
   };
 
   if (authLoading || loading) {
@@ -151,12 +167,19 @@ export const AdminPanel: React.FC = () => {
                     <div className="flex items-center gap-3">
                       <Avatar src={u.photoURL} name={u.displayName} size="md" />
                       <div>
-                        <div className="font-medium">{u.displayName || 'Без имени'}</div>
+                        <div className="font-medium flex items-center gap-2">
+                          {u.displayName || 'Без имени'}
+                          {u.status === 'banned' && (
+                            <span className="text-xs bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full">
+                              Забанен
+                            </span>
+                          )}
+                        </div>
                         <div className="text-sm text-[#AAAAAA]">{u.email}</div>
                       </div>
                     </div>
                     <button
-                      onClick={() => toggleBan(u.id, u.status)}
+                      onClick={() => toggleBan(u.id, u.status || 'active')}
                       className={`px-4 py-2 rounded-xl text-sm transition-all ${
                         u.status === 'banned'
                           ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30'
