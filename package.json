@@ -8,7 +8,9 @@
     "dev": "vite",
     "build": "vite build",
     "electron:dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && cross-env NODE_ENV=development electron .\"",
-    "electron:build": "vite build && electron-builder"
+    "electron:build": "vite build && electron-builder",
+    "deploy": "npm run build && wrangler deploy",
+    "preview": "npm run build && wrangler dev"
   },
   "dependencies": {
     "@capacitor/android": "^8.3.1",
@@ -26,6 +28,7 @@
     "zustand": "latest"
   },
   "devDependencies": {
+    "@cloudflare/vite-plugin": "^1.33.1",
     "@types/react": "latest",
     "@types/react-dom": "latest",
     "@vitejs/plugin-react": "latest",
@@ -38,7 +41,8 @@
     "tailwindcss": "latest",
     "typescript": "latest",
     "vite": "latest",
-    "wait-on": "latest"
+    "wait-on": "latest",
+    "wrangler": "^4.84.1"
   },
   "build": {
     "appId": "com.wave.app",
