@@ -2,7 +2,7 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { db, auth } from '../lib/firebase';
-import { doc, getDoc, collection, query, where, orderBy, limit, startAfter, getDocs, addDoc, updateDoc, Timestamp } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, orderBy, limit, startAfter, getDocs, addDoc, updateDoc, Timestamp, onSnapshot } from 'firebase/firestore';
 import { Avatar } from './Avatar';
 import { PostCard } from './PostCard';
 import { useInfiniteQuery } from '@tanstack/react-query';
@@ -17,6 +17,7 @@ export const PublicProfile: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [friendStatus, setFriendStatus] = useState<'none' | 'pending' | 'accepted'>('none');
   const [friendRequestId, setFriendRequestId] = useState<string | null>(null);
+  const [friendsCount, setFriendsCount] = useState(0);
   const currentUser = auth.currentUser;
 
   useEffect(() => {
@@ -30,7 +31,6 @@ export const PublicProfile: React.FC = () => {
         const usernameDoc = await getDoc(doc(db, 'usernames', userId));
         if (usernameDoc.exists()) setUsername(usernameDoc.data().username);
 
-        // Проверяем статус дружбы
         if (currentUser && currentUser.uid !== userId) {
           const friendsQuery = query(
             collection(db, 'friends'),
@@ -48,6 +48,17 @@ export const PublicProfile: React.FC = () => {
             setFriendRequestId(existingRequest.id);
           }
         }
+
+        // Счётчик друзей
+        const q = query(
+          collection(db, 'friends'),
+          where('participants', 'array-contains', userId),
+          where('status', '==', 'accepted')
+        );
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+          setFriendsCount(snapshot.size);
+        });
+        return () => unsubscribe();
       } catch (error) {
         console.error('Ошибка загрузки профиля:', error);
       } finally {
@@ -61,7 +72,6 @@ export const PublicProfile: React.FC = () => {
     if (!currentUser || !userId) return;
 
     if (friendStatus === 'none') {
-      // Отправляем заявку
       const ref = await addDoc(collection(db, 'friends'), {
         requesterId: currentUser.uid,
         receiverId: userId,
@@ -73,7 +83,6 @@ export const PublicProfile: React.FC = () => {
       setFriendStatus('pending');
       setFriendRequestId(ref.id);
     } else if (friendStatus === 'accepted') {
-      // Удаляем из друзей
       if (friendRequestId) {
         await updateDoc(doc(db, 'friends', friendRequestId), {
           status: 'removed',
@@ -85,7 +94,65 @@ export const PublicProfile: React.FC = () => {
     }
   };
 
-  // ... (fetchUserPosts остаётся без изменений)
+  const fetchUserPosts = async ({ pageParam = null }: { pageParam?: any }) => {
+    if (!userId) return { posts: [], nextPage: null };
+    const postsPerPage = 10;
+    let q = query(
+      collection(db, 'posts'),
+      where('authorId', '==', userId),
+      orderBy('createdAt', 'desc'),
+      limit(postsPerPage)
+    );
+    if (pageParam) {
+      q = query(
+        collection(db, 'posts'),
+        where('authorId', '==', userId),
+        orderBy('createdAt', 'desc'),
+        startAfter(pageParam),
+        limit(postsPerPage)
+      );
+    }
+    const snapshot = await getDocs(q);
+    const lastVisible = snapshot.docs[snapshot.docs.length - 1];
+    const posts: Post[] = snapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        channel: {
+          id: data.authorId,
+          name: data.authorName || 'Пользователь',
+          avatar: data.authorPhotoURL || `https://i.pravatar.cc/150?u=${data.authorId}`,
+        },
+        text: data.text,
+        publishedAt: data.createdAt?.toDate().toISOString() || new Date().toISOString(),
+        media: data.media || [],
+        likes: data.likes || [],
+        commentsCount: data.commentsCount || 0,
+        shares: 0,
+      };
+    });
+    return { posts, nextPage: lastVisible };
+  };
+
+  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading: postsLoading } = useInfiniteQuery({
+    queryKey: ['user-posts', userId],
+    queryFn: fetchUserPosts,
+    getNextPageParam: (lastPage) => lastPage.nextPage,
+    initialPageParam: null,
+    enabled: !!userId,
+  });
+
+  const observerRef = useRef<IntersectionObserver | null>(null);
+  const lastPostRef = useCallback((node: HTMLDivElement | null) => {
+    if (postsLoading || isFetchingNextPage) return;
+    if (observerRef.current) observerRef.current.disconnect();
+    observerRef.current = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting && hasNextPage) {
+        fetchNextPage();
+      }
+    });
+    if (node) observerRef.current.observe(node);
+  }, [postsLoading, isFetchingNextPage, hasNextPage, fetchNextPage]);
 
   if (loading) {
     return (
@@ -97,6 +164,7 @@ export const PublicProfile: React.FC = () => {
 
   if (!userData) return null;
 
+  const allPosts = data?.pages.flatMap(page => page.posts) || [];
   const isOwnProfile = currentUser?.uid === userId;
 
   return (
@@ -116,6 +184,7 @@ export const PublicProfile: React.FC = () => {
               <div>
                 <h2 className="text-2xl font-bold">{userData.displayName || 'Пользователь'}</h2>
                 {username && <p className="text-[#AAAAAA]">@{username}</p>}
+                <p className="text-sm text-[#AAAAAA]">{friendsCount} друзей</p>
               </div>
             </div>
             {!isOwnProfile && (
@@ -142,7 +211,48 @@ export const PublicProfile: React.FC = () => {
         </div>
       </div>
 
-      {/* Список постов (оставь как было) */}
+      <div className="flex-1 overflow-y-auto p-6">
+        <div className="max-w-2xl mx-auto">
+          {postsLoading ? (
+            <div className="space-y-4">
+              {[...Array(3)].map((_, i) => (
+                <div key={i} className="glass p-4 rounded-2xl animate-pulse">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-10 h-10 rounded-full bg-white/10" />
+                    <div className="flex-1">
+                      <div className="h-4 w-24 bg-white/10 rounded mb-2" />
+                      <div className="h-3 w-16 bg-white/10 rounded" />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : allPosts.length === 0 ? (
+            <div className="text-center text-[#AAAAAA] py-8">
+              У пользователя пока нет постов.
+            </div>
+          ) : (
+            <>
+              {allPosts.map((post, index) => {
+                const isLast = index === allPosts.length - 1;
+                return (
+                  <div key={post.id} ref={isLast ? lastPostRef : undefined} className="mb-4">
+                    <PostCard post={post} />
+                  </div>
+                );
+              })}
+              {isFetchingNextPage && (
+                <div className="glass p-4 rounded-2xl animate-pulse">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-white/10" />
+                    <div className="h-4 w-24 bg-white/10 rounded" />
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
     </div>
   );
 };

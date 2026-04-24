@@ -1,4 +1,3 @@
-// src/contexts/AuthContext.tsx
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { auth, db } from '../lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -22,7 +21,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
-        // Пользователь вошёл — ставим онлайн
         try {
           await updateDoc(doc(db, 'users', firebaseUser.uid), {
             online: true,
@@ -32,7 +30,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           console.error('Ошибка обновления статуса онлайн:', error);
         }
 
-        // Проверяем, админ ли
         try {
           const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
           if (userDoc.exists() && userDoc.data().role === 'admin') {
@@ -46,7 +43,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         setUser(firebaseUser);
       } else {
-        // Пользователь вышел — ставим офлайн
         if (user) {
           try {
             await updateDoc(doc(db, 'users', user.uid), {
@@ -57,7 +53,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             console.error('Ошибка обновления статуса офлайн:', error);
           }
         }
-
         setIsAdmin(false);
         setUser(null);
       }
@@ -67,7 +62,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => unsubscribe();
   }, []);
 
-  // При размонтировании (закрытие вкладки) — ставим офлайн
   useEffect(() => {
     const handleBeforeUnload = async () => {
       if (user) {
@@ -81,7 +75,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
     };
-
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [user]);

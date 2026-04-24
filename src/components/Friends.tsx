@@ -1,7 +1,7 @@
 // Friends.tsx
 import React, { useState, useEffect } from 'react';
 import { db, auth } from '../lib/firebase';
-import { collection, query, where, getDocs, addDoc, updateDoc, doc, Timestamp, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, getDocs, updateDoc, doc, Timestamp, onSnapshot } from 'firebase/firestore';
 import { Avatar } from './Avatar';
 import { useNavigate } from 'react-router-dom';
 import { UserCheck, Clock } from 'lucide-react';
@@ -17,7 +17,6 @@ export const Friends: React.FC = () => {
   useEffect(() => {
     if (!currentUser) return;
 
-    // Загружаем друзей
     const friendsQuery = query(
       collection(db, 'friends'),
       where('status', '==', 'accepted'),
@@ -39,7 +38,6 @@ export const Friends: React.FC = () => {
       setFriends(friendsData.filter(Boolean));
     });
 
-    // Загружаем входящие заявки
     const requestsQuery = query(
       collection(db, 'friends'),
       where('receiverId', '==', currentUser.uid),
@@ -81,6 +79,14 @@ export const Friends: React.FC = () => {
     });
   };
 
+  const removeFriend = async (friendId: string) => {
+    if (!window.confirm('Удалить из друзей?')) return;
+    await updateDoc(doc(db, 'friends', friendId), {
+      status: 'removed',
+      updatedAt: Timestamp.now()
+    });
+  };
+
   if (!currentUser) return null;
 
   return (
@@ -92,8 +98,8 @@ export const Friends: React.FC = () => {
             <button
               onClick={() => setActiveTab('friends')}
               className={`px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300 ${
-                activeTab === 'friends' 
-                  ? 'bg-blue-500/30 text-blue-400' 
+                activeTab === 'friends'
+                  ? 'bg-blue-500/30 text-blue-400'
                   : 'text-[#AAAAAA] hover:text-white hover:bg-white/5'
               }`}
             >
@@ -103,8 +109,8 @@ export const Friends: React.FC = () => {
             <button
               onClick={() => setActiveTab('requests')}
               className={`px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300 ${
-                activeTab === 'requests' 
-                  ? 'bg-blue-500/30 text-blue-400' 
+                activeTab === 'requests'
+                  ? 'bg-blue-500/30 text-blue-400'
                   : 'text-[#AAAAAA] hover:text-white hover:bg-white/5'
               }`}
             >
@@ -132,9 +138,15 @@ export const Friends: React.FC = () => {
                   </div>
                   <button
                     onClick={() => navigate('/messages')}
-                    className="px-4 py-2 bg-blue-500/20 text-blue-400 rounded-xl text-sm hover:bg-blue-500/30 transition-all"
+                    className="px-3 py-2 bg-blue-500/20 text-blue-400 rounded-xl text-sm hover:bg-blue-500/30 transition-all"
                   >
                     Написать
+                  </button>
+                  <button
+                    onClick={() => removeFriend(friend.id)}
+                    className="px-3 py-2 bg-red-500/20 text-red-400 rounded-xl text-sm hover:bg-red-500/30 transition-all"
+                  >
+                    Удалить
                   </button>
                 </div>
               ))
