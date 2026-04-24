@@ -160,7 +160,15 @@ export const Friends: React.FC = () => {
                 <div key={friend.id} className="glass p-4 flex items-center gap-3 rounded-2xl">
                   <Avatar src={friend.friendData.photoURL} name={friend.friendData.displayName} size="md" />
                   <div className="flex-1">
-                    <div className="font-medium">{friend.friendData.displayName}</div>
+                   <div className="font-medium flex items-center gap-1">
+  {friend.friendData.displayName}
+  {(() => {
+    const today = new Date().toISOString().slice(5, 10);
+    const friendBD = friend.friendData.birthday?.slice(5, 10);
+    if (today === friendBD) return <span title="Сегодня день рождения!">🎂</span>;
+    return null;
+  })()}
+</div>
                     <div className="text-sm text-[#AAAAAA]">@{friend.friendData.username || 'пользователь'}</div>
                   </div>
                   <button

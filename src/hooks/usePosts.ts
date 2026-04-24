@@ -1,36 +1,37 @@
+// usePosts.ts
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { db } from "../lib/firebase";
+import { db, auth } from "../lib/firebase";
 import {
   collection,
   query,
+  where,
   orderBy,
   limit,
   startAfter,
   getDocs,
-  Timestamp,
 } from "firebase/firestore";
 import type { Post } from "../types";
 
 const POSTS_PER_PAGE = 10;
 
-interface FirestorePost {
-  id: string;
-  text: string;
-  createdAt: Timestamp;
-  media?: { type: "image"; url: string }[];
-  authorId: string;
-  authorName: string;
-  likes?: string[];
-  comments?: any[];
-}
+const fetchPosts = async ({ pageParam, tab }: { pageParam?: any; tab: string }) => {
+  const currentUser = auth.currentUser;
 
-const fetchPosts = async ({
-  pageParam,
-  tab,
-}: {
-  pageParam?: any;
-  tab: string;
-}) => {
+  // Получаем список заблокированных пользователей (если пользователь авторизован)
+  let blockedIds: string[] = [];
+  if (currentUser) {
+    try {
+      const blocksQuery = query(
+        collection(db, "blocks"),
+        where("blockerId", "==", currentUser.uid)
+      );
+      const blocksSnapshot = await getDocs(blocksQuery);
+      blockedIds = blocksSnapshot.docs.map(doc => doc.data().blockedId);
+    } catch (error) {
+      console.error("Ошибка загрузки блокировок:", error);
+    }
+  }
+
   let q;
   if (pageParam) {
     q = query(
@@ -47,32 +48,36 @@ const fetchPosts = async ({
     );
   }
 
-  const snapshot = await getDocs(q);
-  const lastVisible = snapshot.docs[snapshot.docs.length - 1];
+  try {
+    const snapshot = await getDocs(q);
+    const lastVisible = snapshot.docs[snapshot.docs.length - 1];
 
-  const posts: Post[] = snapshot.docs.map((doc) => {
-    const data = doc.data() as FirestorePost;
-    return {
-      id: doc.id,
-      channel: {
-        id: data.authorId, // или можно оставить "default", но лучше использовать authorId
-        name: data.authorName || "Пользователь",
-        avatar: data.authorPhotoURL || null,
-      },
-      text: data.text,
-      publishedAt: data.createdAt?.toDate().toISOString() || new Date().toISOString(),
-      media: data.media || [],
-      likes: data.likes || [],
-      commentsCount: data.commentsCount || 0,
-      shares: 0,
-    };
-  });
+    const posts: Post[] = snapshot.docs
+      .map((doc) => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          channel: {
+            id: data.authorId,
+            name: data.authorName || "Пользователь",
+            avatar: data.authorPhotoURL || null,
+          },
+          text: data.text || "",
+          publishedAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
+          media: data.media || [],
+          likes: data.likes || [],
+          commentsCount: data.commentsCount || 0,
+          shares: 0,
+          pinned: data.pinned || false,
+        };
+      })
+      .filter(post => !blockedIds.includes(post.channel.id));
 
-  return {
-    posts,
-    nextPage: lastVisible,
-    total: 0,
-  };
+    return { posts, nextPage: lastVisible, total: 0 };
+  } catch (error) {
+    console.error("Ошибка загрузки постов:", error);
+    return { posts: [], nextPage: null, total: 0 };
+  }
 };
 
 export const usePosts = (tab: "subscriptions" | "recommendations") => {
@@ -81,6 +86,7 @@ export const usePosts = (tab: "subscriptions" | "recommendations") => {
     queryFn: ({ pageParam }) => fetchPosts({ pageParam, tab }),
     getNextPageParam: (lastPage) => lastPage.nextPage,
     initialPageParam: null,
-    staleTime: 0, // чтобы сразу видеть новые посты
+    staleTime: 0,
+    refetchOnMount: true,
   });
 };

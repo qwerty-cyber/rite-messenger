@@ -2,12 +2,12 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { db, auth } from '../lib/firebase';
-import { doc, getDoc, collection, query, where, orderBy, limit, startAfter, getDocs, addDoc, updateDoc, Timestamp, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, orderBy, limit, startAfter, getDocs, addDoc, updateDoc, deleteDoc, Timestamp, onSnapshot } from 'firebase/firestore';
 import { Avatar } from './Avatar';
 import { PostCard } from './PostCard';
 import { PollDisplay } from './PollDisplay';
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { ArrowLeft, UserPlus, UserCheck, Clock } from 'lucide-react';
+import { ArrowLeft, UserPlus, UserCheck, Clock, Ban } from 'lucide-react';
 import type { Post } from '../types';
 
 export const PublicProfile: React.FC = () => {
@@ -20,6 +20,7 @@ export const PublicProfile: React.FC = () => {
   const [friendRequestId, setFriendRequestId] = useState<string | null>(null);
   const [friendsCount, setFriendsCount] = useState(0);
   const [polls, setPolls] = useState<any[]>([]);
+  const [isBlocked, setIsBlocked] = useState(false);
   const currentUser = auth.currentUser;
 
   useEffect(() => {
@@ -27,7 +28,9 @@ export const PublicProfile: React.FC = () => {
     const loadUser = async () => {
       try {
         const userDoc = await getDoc(doc(db, 'users', userId));
-        if (userDoc.exists()) setUserData(userDoc.data()); else { navigate('/'); return; }
+        if (userDoc.exists()) setUserData(userDoc.data());
+        else { navigate('/'); return; }
+
         const usernameDoc = await getDoc(doc(db, 'usernames', userId));
         if (usernameDoc.exists()) setUsername(usernameDoc.data().username);
 
@@ -36,6 +39,11 @@ export const PublicProfile: React.FC = () => {
           const friendsSnap = await getDocs(friendsQuery);
           const existingRequest = friendsSnap.docs.find(doc => { const data = doc.data(); return data.participants.includes(userId); });
           if (existingRequest) { const data = existingRequest.data(); setFriendStatus(data.status); setFriendRequestId(existingRequest.id); }
+
+          // Проверка блокировки
+          const blockQuery = query(collection(db, 'blocks'), where('blockerId', '==', currentUser.uid), where('blockedId', '==', userId));
+          const blockSnap = await getDocs(blockQuery);
+          setIsBlocked(!blockSnap.empty);
         }
 
         const q = query(collection(db, 'friends'), where('participants', 'array-contains', userId), where('status', '==', 'accepted'));
@@ -58,6 +66,20 @@ export const PublicProfile: React.FC = () => {
     } else if (friendStatus === 'accepted') {
       if (friendRequestId) await updateDoc(doc(db, 'friends', friendRequestId), { status: 'removed', updatedAt: Timestamp.now() });
       setFriendStatus('none'); setFriendRequestId(null);
+    }
+  };
+
+  const handleBlock = async () => {
+    if (!currentUser || !userId) return;
+    if (isBlocked) {
+      const q = query(collection(db, 'blocks'), where('blockerId', '==', currentUser.uid), where('blockedId', '==', userId));
+      const snapshot = await getDocs(q);
+      snapshot.docs.forEach(async (d) => await deleteDoc(doc(db, 'blocks', d.id)));
+      setIsBlocked(false);
+    } else {
+      await addDoc(collection(db, 'blocks'), { blockerId: currentUser.uid, blockedId: userId, createdAt: Timestamp.now() });
+      setIsBlocked(true);
+      if (friendRequestId) { await updateDoc(doc(db, 'friends', friendRequestId), { status: 'removed' }); setFriendStatus('none'); }
     }
   };
 
@@ -90,14 +112,15 @@ export const PublicProfile: React.FC = () => {
 
   const postItems = (data?.pages.flatMap(page => page.posts) || []).map(post => ({ id: post.id, type: 'post' as const, postData: post, createdAt: new Date(post.publishedAt) }));
   const pollItems = polls.map(poll => ({ id: poll.id, type: 'poll' as const, pollData: poll, createdAt: poll.createdAt?.toDate() || new Date() }));
-
-  const allItems = [...postItems, ...pollItems].sort((a, b) => {
-    const aPinned = a.type === 'post' ? (a.postData as any).pinned : false;
-    const bPinned = b.type === 'post' ? (b.postData as any).pinned : false;
-    if (aPinned && !bPinned) return -1;
-    if (!aPinned && bPinned) return 1;
-    return b.createdAt.getTime() - a.createdAt.getTime();
-  });
+  const allItems = [...postItems, ...pollItems]
+    .filter((item, index, self) => self.findIndex(t => t.id === item.id && t.type === item.type) === index)
+    .sort((a, b) => {
+      const aPinned = a.type === 'post' ? (a.postData as any).pinned : false;
+      const bPinned = b.type === 'post' ? (b.postData as any).pinned : false;
+      if (aPinned && !bPinned) return -1;
+      if (!aPinned && bPinned) return 1;
+      return b.createdAt.getTime() - a.createdAt.getTime();
+    });
 
   const isOwnProfile = currentUser?.uid === userId;
 
@@ -106,7 +129,7 @@ export const PublicProfile: React.FC = () => {
       <div className="p-6 bg-white/5 backdrop-blur-xl border-b border-[var(--border-color)]">
         <div className="max-w-2xl mx-auto">
           <button onClick={() => navigate(-1)} className="mb-4 flex items-center gap-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] p-2 rounded-lg hover:bg-white/10"><ArrowLeft size={20} /><span>Назад</span></button>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-6">
               <Avatar src={userData.photoURL} name={userData.displayName} size="lg" />
               <div>
@@ -116,9 +139,14 @@ export const PublicProfile: React.FC = () => {
               </div>
             </div>
             {!isOwnProfile && (
-              <button onClick={handleFriendAction} className={`px-4 py-2 rounded-xl text-sm font-medium transition-all flex items-center gap-2 ${friendStatus === 'accepted' ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30' : friendStatus === 'pending' ? 'bg-yellow-500/20 text-yellow-400' : 'bg-blue-500/20 text-blue-400 hover:bg-blue-500/30'}`}>
-                {friendStatus === 'accepted' ? <><UserCheck size={18} /> В друзьях</> : friendStatus === 'pending' ? <><Clock size={18} /> Заявка отправлена</> : <><UserPlus size={18} /> Добавить в друзья</>}
-              </button>
+              <div className="flex gap-2">
+                <button onClick={handleFriendAction} className={`px-4 py-2 rounded-xl text-sm font-medium transition-all flex items-center gap-2 ${friendStatus === 'accepted' ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30' : friendStatus === 'pending' ? 'bg-yellow-500/20 text-yellow-400' : 'bg-blue-500/20 text-blue-400 hover:bg-blue-500/30'}`}>
+                  {friendStatus === 'accepted' ? <><UserCheck size={18} /> В друзьях</> : friendStatus === 'pending' ? <><Clock size={18} /> Заявка отправлена</> : <><UserPlus size={18} /> Добавить в друзья</>}
+                </button>
+                <button onClick={handleBlock} className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${isBlocked ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30' : 'bg-white/5 text-[var(--text-secondary)] hover:bg-white/10'}`}>
+                  <Ban size={18} className="inline mr-1" />{isBlocked ? 'Разблокировать' : 'Блок'}
+                </button>
+              </div>
             )}
           </div>
         </div>
@@ -127,9 +155,7 @@ export const PublicProfile: React.FC = () => {
         <div className="max-w-2xl mx-auto">
           {postsLoading ? (
             <div className="space-y-4">
-              {[...Array(3)].map((_, i) => (
-                <div key={i} className="glass p-4 rounded-2xl animate-pulse"><div className="flex items-center gap-3 mb-3"><div className="w-10 h-10 rounded-full bg-white/10" /><div className="flex-1"><div className="h-4 w-24 bg-white/10 rounded mb-2" /><div className="h-3 w-16 bg-white/10 rounded" /></div></div></div>
-              ))}
+              {[...Array(3)].map((_, i) => <div key={i} className="glass p-4 rounded-2xl animate-pulse"><div className="flex items-center gap-3 mb-3"><div className="w-10 h-10 rounded-full bg-white/10" /><div className="flex-1"><div className="h-4 w-24 bg-white/10 rounded mb-2" /><div className="h-3 w-16 bg-white/10 rounded" /></div></div></div>)}
             </div>
           ) : allItems.length === 0 ? (
             <div className="text-center text-[var(--text-secondary)] py-8">У пользователя пока нет постов.</div>

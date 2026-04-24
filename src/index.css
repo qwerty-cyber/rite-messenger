@@ -3,99 +3,87 @@
 @tailwind utilities;
 
 :root {
-  --bg-primary: #0F0F0F;
-  --bg-secondary: #1C1C1E;
-  --bg-card: rgba(255, 255, 255, 0.05);
-  --bg-card-hover: rgba(255, 255, 255, 0.1);
+  --bg-primary: #0a0a14;
+  --bg-secondary: rgba(20, 20, 40, 0.6);
+  --bg-card: rgba(255, 255, 255, 0.04);
+  --bg-card-hover: rgba(255, 255, 255, 0.08);
   --text-primary: #FFFFFF;
   --text-secondary: #AAAAAA;
-  --border-color: rgba(255, 255, 255, 0.1);
-  --gradient-start: #1a1a2e;
-  --gradient-mid: #16213e;
-  --gradient-end: #0f3460;
+  --border-color: rgba(255, 255, 255, 0.06);
+  --glass-bg: rgba(255, 255, 255, 0.03);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  --gradient-1: #1a1a3e;
+  --gradient-2: #0f0f2e;
+  --gradient-3: #16213e;
+  --accent-blue: #4f8fff;
+  --accent-purple: #7c3aed;
 }
 
 .light {
-  --bg-primary: #F2F2F7;
-  --bg-secondary: #FFFFFF;
-  --bg-card: rgba(0, 0, 0, 0.03);
-  --bg-card-hover: rgba(0, 0, 0, 0.06);
-  --text-primary: #000000;
-  --text-secondary: #8E8E93;
-  --border-color: rgba(0, 0, 0, 0.1);
-  --gradient-start: #e8e8f0;
-  --gradient-mid: #d0d0e0;
-  --gradient-end: #c0c0d8;
+  --bg-primary: #f0f0f5;
+  --bg-secondary: rgba(240, 240, 250, 0.6);
+  --bg-card: rgba(0, 0, 0, 0.02);
+  --bg-card-hover: rgba(0, 0, 0, 0.05);
+  --text-primary: #1a1a2e;
+  --text-secondary: #6b7280;
+  --border-color: rgba(0, 0, 0, 0.06);
+  --glass-bg: rgba(255, 255, 255, 0.5);
+  --glass-border: rgba(0, 0, 0, 0.08);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+  --gradient-1: #e8e8f0;
+  --gradient-2: #f5f5fa;
+  --gradient-3: #e0e0f0;
 }
 
 body {
-  background: var(--bg-primary);
+  background: linear-gradient(135deg, var(--gradient-1), var(--gradient-2), var(--gradient-3));
+  background-attachment: fixed;
+  background-size: 400% 400%;
+  animation: gradientShift 15s ease infinite;
   color: var(--text-primary);
-  transition: background 0.3s, color 0.3s;
+  transition: background 0.5s, color 0.5s;
   margin: 0;
   padding: 0;
   overflow: hidden;
 }
 
+@keyframes gradientShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
 .glass {
-  background: var(--bg-card);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid var(--border-color);
+  background: var(--glass-bg);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
 }
 
 .glass-hover:hover {
-  background: var(--bg-card-hover);
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.15);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
 }
 
-/* Кастомный скроллбар */
-::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
+.glass-heavy {
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(32px);
+  -webkit-backdrop-filter: blur(32px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
 }
 
-::-webkit-scrollbar-track {
-  background: transparent;
-}
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
+.light ::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.15); }
+.light ::-webkit-scrollbar-thumb:hover { background: rgba(0, 0, 0, 0.25); }
+* { scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.1) transparent; }
+.light * { scrollbar-color: rgba(0, 0, 0, 0.15) transparent; }
 
-::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 10px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.3);
-}
-
-/* Светлая тема */
-.light ::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.15);
-}
-
-.light ::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 0, 0, 0.3);
-}
-
-/* Firefox */
-* {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
-}
-
-.light * {
-  scrollbar-color: rgba(0, 0, 0, 0.15) transparent;
-}
-
-/* Анимация пульсации для скелетонов */
-@keyframes pulse {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.5;
-  }
-}
-
-.animate-pulse {
-  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-}
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+.animate-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
