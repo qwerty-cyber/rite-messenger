@@ -78,12 +78,19 @@ export const Profile: React.FC = () => {
   };
 
   const uploadAvatar = async (file: File): Promise<string> => {
-    const formData = new FormData(); formData.append('image', file);
-    const response = await fetch('https://api.imgbb.com/1/upload?key=твой_ключ', { method: 'POST', body: formData });
-    if (!response.ok) throw new Error('Ошибка загрузки');
-    const data = await response.json();
-    return data.data.url;
-  };
+  const formData = new FormData();
+  formData.append('image', file);
+
+  const response = await fetch(
+    'https://api.imgbb.com/1/upload?key=b8c24511b197ee87dab7b596a47bac90',
+    { method: 'POST', body: formData }
+  );
+
+  if (!response.ok) throw new Error('Ошибка загрузки');
+  const data = await response.json();
+  if (data.success) return data.data.url;
+  throw new Error('Ошибка загрузки');
+};
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

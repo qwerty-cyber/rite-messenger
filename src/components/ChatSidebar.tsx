@@ -82,7 +82,10 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({ chatId, otherUser, cha
     try {
       const formData = new FormData();
       formData.append('image', file);
-      const response = await fetch('https://api.imgbb.com/1/upload?key=твой_ключ', { method: 'POST', body: formData });
+    const response = await fetch(
+  'https://api.imgbb.com/1/upload?key=b8c24511b197ee87dab7b596a47bac90',
+  { method: 'POST', body: formData }
+);
       const data = await response.json();
       if (data.success) {
         await updateDoc(doc(db, 'chats', chatId), { groupPhoto: data.data.url });
