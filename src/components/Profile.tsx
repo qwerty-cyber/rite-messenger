@@ -78,19 +78,17 @@ export const Profile: React.FC = () => {
   };
 
   const uploadAvatar = async (file: File): Promise<string> => {
-  const formData = new FormData();
-  formData.append('image', file);
-
-  const response = await fetch(
-    'https://api.imgbb.com/1/upload?key=b8c24511b197ee87dab7b596a47bac90',
-    { method: 'POST', body: formData }
-  );
-
-  if (!response.ok) throw new Error('Ошибка загрузки');
-  const data = await response.json();
-  if (data.success) return data.data.url;
-  throw new Error('Ошибка загрузки');
-};
+    const formData = new FormData();
+    formData.append('image', file);
+    const response = await fetch('https://api.imgbb.com/1/upload?key=b8c24511b197ee87dab7b596a47bac90', {
+      method: 'POST',
+      body: formData,
+    });
+    if (!response.ok) throw new Error('Ошибка загрузки');
+    const data = await response.json();
+    if (data.success) return data.data.url;
+    throw new Error('Ошибка загрузки на ImgBB');
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -153,13 +151,13 @@ export const Profile: React.FC = () => {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="bg-white/5 backdrop-blur-xl border-b border-[var(--border-color)] p-6">
+      <div className="bg-white/5 backdrop-blur-xl border-b border-[var(--border-color)] p-4 sm:p-6">
         <div className="max-w-2xl mx-auto">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-6">
+            <div className="flex items-center gap-4 sm:gap-6">
               <Avatar src={avatarPreview} name={displayName} size="lg" />
               <div>
-                <h2 className="text-2xl font-bold text-[var(--text-primary)] flex items-center gap-2">
+                <h2 className="text-xl sm:text-2xl font-bold text-[var(--text-primary)] flex items-center gap-2">
                   {displayName || 'Пользователь'}
                   {isBirthday && <span className="text-xs bg-pink-500/20 text-pink-400 px-2 py-0.5 rounded-full">🎂 Сегодня ДР!</span>}
                 </h2>
@@ -167,12 +165,12 @@ export const Profile: React.FC = () => {
                 <p className="text-sm text-[var(--text-secondary)] mt-1">{friendsCount} друзей</p>
               </div>
             </div>
-            <button onClick={() => setShowEditModal(true)} className="px-4 py-2 bg-white/10 hover:bg-white/20 text-[var(--text-primary)] rounded-xl text-sm font-medium transition-colors">Редактировать профиль</button>
+            <button onClick={() => setShowEditModal(true)} className="px-3 py-1.5 sm:px-4 sm:py-2 bg-white/10 hover:bg-white/20 text-[var(--text-primary)] rounded-xl text-xs sm:text-sm font-medium transition-colors">Редактировать</button>
           </div>
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 overflow-y-auto p-4 sm:p-6">
         <div className="max-w-2xl mx-auto">
           {postsLoading ? (
             <div className="space-y-4">{[...Array(3)].map((_, i) => <div key={i} className="glass-heavy p-4 rounded-2xl animate-pulse"><div className="flex items-center gap-3 mb-3"><div className="w-10 h-10 rounded-full bg-white/10" /><div className="flex-1"><div className="h-4 w-24 bg-white/10 rounded mb-2" /><div className="h-3 w-16 bg-white/10 rounded" /></div></div></div>)}</div>
