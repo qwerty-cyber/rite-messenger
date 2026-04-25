@@ -1,0 +1,51 @@
+// About.tsx
+import React from 'react';
+import { Link } from 'react-router-dom';
+
+export const About: React.FC = () => {
+  return (
+    <div className="flex flex-col h-full">
+      <div className="p-6 glass-heavy border-b border-[var(--border-color)]">
+        <div className="max-w-2xl mx-auto">
+          <h1 className="text-2xl font-bold text-[var(--text-primary)]">О приложении</h1>
+        </div>
+      </div>
+      <div className="flex-1 overflow-y-auto p-6">
+        <div className="max-w-2xl mx-auto space-y-6">
+          <div className="glass p-6 rounded-2xl">
+            <h2 className="text-lg font-bold text-[var(--text-primary)] mb-2">rite</h2>
+            <p className="text-sm text-[var(--text-secondary)]">Версия: alpha 0.0.1</p>
+            <p className="text-sm text-[var(--text-secondary)] mt-1">Сборка: {new Date().toISOString().slice(0, 10)}</p>
+          </div>
+
+          <div className="glass p-6 rounded-2xl">
+            <h2 className="text-lg font-bold text-[var(--text-primary)] mb-2">Пользовательское соглашение</h2>
+            <p className="text-sm text-[var(--text-secondary)] leading-relaxed">
+              Используя данное приложение, вы соглашаетесь с тем, что все данные, включая переписку,
+              изображения и голосовые сообщения, хранятся на серверах Firebase и ImgBB.
+              Администрация не несёт ответственности за сохранность данных.
+              Запрещено распространение незаконного контента, спама и оскорблений.
+            </p>
+          </div>
+
+          <div className="glass p-6 rounded-2xl">
+            <h2 className="text-lg font-bold text-[var(--text-primary)] mb-2">Политика конфиденциальности</h2>
+            <p className="text-sm text-[var(--text-secondary)] leading-relaxed">
+              Мы собираем минимальные данные: email, имя пользователя, аватар.
+              Данные используются исключительно для функционирования мессенджера.
+              Вы можете удалить свой аккаунт в любой момент через настройки профиля.
+              Мы не передаём данные третьим лицам.
+            </p>
+          </div>
+
+          <div className="glass p-6 rounded-2xl">
+            <h2 className="text-lg font-bold text-[var(--text-primary)] mb-2">Контакты</h2>
+            <p className="text-sm text-[var(--text-secondary)]">
+              По вопросам и предложениям: <a href="mailto:flagmantoto@gmail.com" className="text-blue-400 hover:underline">flagmantoto@gmail.com</a>
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};

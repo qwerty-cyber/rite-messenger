@@ -16,20 +16,18 @@
   --gradient-1: #1a1a3e;
   --gradient-2: #0f0f2e;
   --gradient-3: #16213e;
-  --accent-blue: #4f8fff;
-  --accent-purple: #7c3aed;
 }
 
 .light {
   --bg-primary: #f0f0f5;
-  --bg-secondary: rgba(240, 240, 250, 0.6);
-  --bg-card: rgba(0, 0, 0, 0.02);
-  --bg-card-hover: rgba(0, 0, 0, 0.05);
+  --bg-secondary: #ffffff;
+  --bg-card: rgba(0, 0, 0, 0.04);
+  --bg-card-hover: rgba(0, 0, 0, 0.08);
   --text-primary: #1a1a2e;
-  --text-secondary: #6b7280;
-  --border-color: rgba(0, 0, 0, 0.06);
-  --glass-bg: rgba(255, 255, 255, 0.5);
-  --glass-border: rgba(0, 0, 0, 0.08);
+  --text-secondary: #4a4a5a;
+  --border-color: rgba(0, 0, 0, 0.1);
+  --glass-bg: rgba(255, 255, 255, 0.8);
+  --glass-border: rgba(0, 0, 0, 0.12);
   --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
   --gradient-1: #e8e8f0;
   --gradient-2: #f5f5fa;

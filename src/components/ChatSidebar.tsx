@@ -1,7 +1,7 @@
 // ChatSidebar.tsx
 import React, { useEffect, useState, useRef } from 'react';
 import { auth, db } from '../lib/firebase';
-import { collection, query, getDocs, orderBy, doc, updateDoc, arrayRemove, arrayUnion, deleteDoc, getDoc } from 'firebase/firestore';
+import { collection, query, getDocs, orderBy, doc, updateDoc, arrayRemove, arrayUnion, deleteDoc, getDoc, onSnapshot } from 'firebase/firestore';
 import { Avatar } from './Avatar';
 import { X, Image, FileText, Users, Bell, Ban, Link2, Mic, User, ExternalLink, Crown, Shield, Camera, Pencil, UserMinus, LogOut } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -35,9 +35,13 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({ chatId, otherUser, cha
   const canEdit = isOwner || isAdmin;
 
   useEffect(() => {
-    loadSharedData();
-    if (isGroup) loadGroupUsers();
-  }, [chatId]);
+  loadSharedData();
+  let cleanup: (() => void) | undefined;
+  if (isGroup) {
+    cleanup = loadGroupUsers();
+  }
+  return () => { if (cleanup) cleanup(); };
+}, [chatId]);
 
   const loadSharedData = async () => {
     try {
@@ -52,28 +56,36 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({ chatId, otherUser, cha
     } catch (error) { console.error('Ошибка загрузки данных:', error); }
   };
 
-  const loadGroupUsers = async () => {
-    if (!chatData?.participants) return;
-    try {
-      const usersData = await Promise.all(
-        chatData.participants.map(async (uid: string) => {
-          const userDoc = await getDoc(doc(db, 'users', uid));
-          if (userDoc.exists()) {
-            const userData = userDoc.data();
-            return {
-              id: uid,
-              displayName: userData.displayName || 'Пользователь',
-              photoURL: userData.photoURL || null,
-              online: userData.online || false,
-              role: uid === chatData.createdBy ? 'owner' : chatData.admins?.includes(uid) ? 'admin' : 'member'
-            };
-          }
-          return null;
-        })
-      );
-      setGroupUsers(usersData.filter(Boolean));
-    } catch (error) { console.error('Ошибка загрузки участников:', error); }
-  };
+  const loadGroupUsers = () => {
+  if (!chatData?.participants) return;
+
+  // Подписываемся на изменения всех участников
+  const unsubscribes = chatData.participants.map((uid: string) => {
+    return onSnapshot(doc(db, 'users', uid), (userDoc) => {
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        setGroupUsers(prev => {
+          const filtered = prev.filter(u => u.id !== uid);
+          return [...filtered, {
+            id: uid,
+            displayName: userData.displayName || 'Пользователь',
+            photoURL: userData.photoURL || null,
+            online: userData.online || false,
+            role: uid === chatData.createdBy ? 'owner' : chatData.admins?.includes(uid) ? 'admin' : 'member'
+          }].sort((a, b) => {
+            if (a.role === 'owner') return -1;
+            if (b.role === 'owner') return 1;
+            if (a.role === 'admin' && b.role !== 'admin') return -1;
+            if (b.role === 'admin' && a.role !== 'admin') return 1;
+            return 0;
+          });
+        });
+      }
+    });
+  });
+
+  return () => unsubscribes.forEach(unsub => unsub());
+};
 
   const handleGroupPhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -150,7 +162,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({ chatId, otherUser, cha
   ];
 
   return (
-    <div className="w-full md:w-96 bg-black/30 border-l border-[var(--border-color)] flex flex-col h-full">
+    <div className="w-full md:w-96 bg-[var(--glass-bg)] border-l border-[var(--border-color)] flex flex-col h-full">
       <div className="p-4 border-b border-[var(--border-color)] flex items-center justify-between">
         <h3 className="font-bold text-[var(--text-primary)] text-lg">Информация</h3>
         <button onClick={onClose} className="p-1 rounded-lg hover:bg-white/10 text-[var(--text-secondary)]"><X size={20} /></button>

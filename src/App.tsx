@@ -1,7 +1,7 @@
 // App.tsx
 import { useEffect, useState } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
-import { Home, Search, MessageCircle, User, LogOut, Shield, Menu, X, Users, Bookmark, Sun, Moon } from 'lucide-react';
+import { Home, Search, MessageCircle, User, LogOut, Shield, Menu, X, Users, Bookmark, Sun, Moon, Info } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Feed } from './components/Feed';
 import { Auth } from './components/Auth';
@@ -13,6 +13,7 @@ import { PublicProfile } from './components/PublicProfile';
 import { AdminPanel } from './components/AdminPanel';
 import { Friends } from './components/Friends';
 import { Bookmarks } from './components/Bookmarks';
+import { About } from './components/About';
 import { auth } from './lib/firebase';
 import { db } from './lib/firebase';
 import { collection, query, where, onSnapshot, doc, getDoc } from 'firebase/firestore';
@@ -32,6 +33,7 @@ function AppContent() {
   const [pendingRequests, setPendingRequests] = useState(0);
   const { isAdmin } = useAuth();
   const [theme, setTheme] = useState<'dark' | 'light'>((localStorage.getItem('theme') as 'dark' | 'light') || 'dark');
+  const [hideNsfw, setHideNsfw] = useState(localStorage.getItem('hideNsfw') === 'true');
 
   useEffect(() => {
     if (theme === 'light') document.documentElement.classList.add('light');
@@ -41,6 +43,13 @@ function AppContent() {
 
   const toggleTheme = () => setTheme(prev => prev === 'dark' ? 'light' : 'dark');
 
+  const toggleNsfw = () => {
+    const newVal = !hideNsfw;
+    setHideNsfw(newVal);
+    localStorage.setItem('hideNsfw', String(newVal));
+    window.location.reload();
+  };
+
   useEffect(() => { if (Notification.permission !== 'granted' && Notification.permission !== 'denied') Notification.requestPermission(); }, []);
 
   useEffect(() => {
@@ -48,7 +57,6 @@ function AppContent() {
     return () => unsubscribe();
   }, []);
 
-  // Проверка дня рождения при входе
   useEffect(() => {
     if (!firebaseUser) return;
     const checkBirthday = async () => {
@@ -59,9 +67,7 @@ function AppContent() {
           if (birthday) {
             const today = new Date().toISOString().slice(5, 10);
             const userBD = birthday.slice(5, 10);
-            if (today === userBD) {
-              setTimeout(() => alert('🎂 С днём рождения! Желаем всего наилучшего! 🎉'), 1500);
-            }
+            if (today === userBD) setTimeout(() => alert('🎂 С днём рождения! Желаем всего наилучшего! 🎉'), 1500);
           }
         }
       } catch (error) {}
@@ -99,6 +105,7 @@ function AppContent() {
     { icon: Users, label: 'Друзья', path: '/friends' },
     { icon: Bookmark, label: 'Закладки', path: '/bookmarks' },
     { icon: User, label: 'Профиль', path: '/profile' },
+    { icon: Info, label: 'О приложении', path: '/about' },
   ];
 
   const isActive = (path: string) => path === '/messages' ? location.pathname.startsWith('/messages') : location.pathname === path;
@@ -107,7 +114,7 @@ function AppContent() {
     <div className="flex h-screen text-[var(--text-primary)]">
       {sidebarOpen && <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 lg:hidden" onClick={() => setSidebarOpen(false)} />}
 
-      <aside className={`fixed lg:static inset-y-0 left-0 z-50 w-64 glass-heavy flex flex-col transition-transform duration-300 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'} border-r border-[var(--glass-border)]`}>
+      <aside className={`fixed lg:static inset-y-0 left-0 z-50 w-64 bg-[var(--bg-secondary)] backdrop-blur-xl flex flex-col transition-transform duration-300 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'} border-r border-[var(--glass-border)]`}>
         <div className="p-4 border-b border-[var(--glass-border)] flex items-center justify-between">
           <h1 className="text-xl font-bold tracking-tight bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">rite</h1>
           <button onClick={() => setSidebarOpen(false)} className="lg:hidden p-1 rounded-lg hover:bg-white/10"><X size={20} /></button>
@@ -136,6 +143,10 @@ function AppContent() {
             <div className="flex-1 text-left truncate"><div className="font-medium text-sm truncate">{firebaseUser?.displayName || 'Пользователь'}</div><div className="text-xs text-[var(--text-secondary)] truncate">{firebaseUser?.email}</div></div>
           </button>
           <button onClick={toggleTheme} className="w-full flex items-center gap-3 px-4 py-2 text-[var(--text-secondary)] hover:text-white hover:bg-white/5 rounded-xl transition-all mb-2">{theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}<span>{theme === 'dark' ? 'Светлая тема' : 'Тёмная тема'}</span></button>
+          <button onClick={toggleNsfw} className="w-full flex items-center gap-3 px-4 py-2 text-[var(--text-secondary)] hover:text-white hover:bg-white/5 rounded-xl transition-all mb-2">{hideNsfw ? '🔞 NSFW скрыт' : '🔞 NSFW виден'}</button>
+          <div className="px-4 py-2 text-center">
+            <p className="text-xs text-[var(--text-secondary)]">rite alpha 0.0.1</p>
+          </div>
           <button onClick={() => auth.signOut()} className="w-full flex items-center gap-3 px-4 py-2 text-[var(--text-secondary)] hover:text-white hover:bg-white/5 rounded-xl transition-all"><LogOut size={20} /><span>Выйти</span></button>
         </div>
       </aside>
@@ -158,6 +169,7 @@ function AppContent() {
                 <Route path="/friends" element={<Friends />} />
                 <Route path="/bookmarks" element={<Bookmarks />} />
                 <Route path="/admin" element={<AdminPanel />} />
+                <Route path="/about" element={<About />} />
                 <Route path="*" element={<Navigate to="/" />} />
               </Routes>
             </div>
@@ -172,6 +184,7 @@ function AppContent() {
                 <Route path="/friends" element={<Friends />} />
                 <Route path="/bookmarks" element={<Bookmarks />} />
                 <Route path="/admin" element={<AdminPanel />} />
+                <Route path="/about" element={<About />} />
                 <Route path="*" element={<Navigate to="/" />} />
               </Routes>
             </motion.div>

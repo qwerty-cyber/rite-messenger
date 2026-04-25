@@ -21,7 +21,6 @@ export const Search: React.FC = () => {
     const queryFromUrl = searchParams.get('q');
     if (queryFromUrl) {
       setSearchQuery(queryFromUrl);
-      // Определяем вкладку по первому символу
       if (queryFromUrl.startsWith('#')) {
         setActiveTab('posts');
       } else {
@@ -38,11 +37,18 @@ export const Search: React.FC = () => {
 
   const handleSearchWithQuery = async (q: string) => {
     if (!q.trim()) return;
+
+    // Очищаем запрос: убираем @, пробелы, #
+    let cleanQuery = q.trim();
+    if (cleanQuery.startsWith('@')) cleanQuery = cleanQuery.slice(1);
+    if (cleanQuery.startsWith('#')) {
+      cleanQuery = cleanQuery.slice(1);
+      setActiveTab('posts');
+    }
+    cleanQuery = cleanQuery.replace(/\s+/g, '');
+
     setLoading(true);
     try {
-      // Убираем # если есть
-      const cleanQuery = q.startsWith('#') ? q.slice(1) : q;
-
       if (activeTab === 'people' && !q.startsWith('#')) {
         // Поиск людей
         const q_ = query(
@@ -140,7 +146,6 @@ export const Search: React.FC = () => {
         <div className="max-w-2xl mx-auto">
           <h1 className="text-2xl font-bold mb-4 text-[var(--text-primary)]">Поиск</h1>
 
-          {/* Поле поиска */}
           <div className="flex gap-2 mb-4">
             <input
               type="text"
@@ -159,7 +164,6 @@ export const Search: React.FC = () => {
             </button>
           </div>
 
-          {/* Вкладки */}
           <div className="flex gap-4">
             <button
               onClick={() => setActiveTab('people')}

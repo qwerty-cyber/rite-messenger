@@ -96,52 +96,28 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
     if (saved && bookmarkId) { await deleteDoc(doc(db, 'bookmarks', bookmarkId)); setSaved(false); setBookmarkId(null); }
     else { const ref = await addDoc(collection(db, 'bookmarks'), { userId: currentUser.uid, postId: post.id, post: post, createdAt: Timestamp.now() }); setSaved(true); setBookmarkId(ref.id); }
   };
-const handleReaction = async (emoji: string) => {
-  if (!currentUser) return;
 
-  // Проверяем, есть ли уже какая-нибудь реакция от этого пользователя
-  const userReactionQuery = query(
-    collection(db, 'reactions'),
-    where('postId', '==', post.id),
-    where('userId', '==', currentUser.uid)
-  );
-  const userSnapshot = await getDocs(userReactionQuery);
-
-  // Если уже есть реакция от этого пользователя
-  if (!userSnapshot.empty) {
-    const existingDoc = userSnapshot.docs[0];
-    const existingEmoji = existingDoc.data().emoji;
-
-    if (existingEmoji === emoji) {
-      // Если та же самая — удаляем
-      await deleteDoc(doc(db, 'reactions', existingDoc.id));
-    } else {
-      // Если другая — заменяем
-      await updateDoc(doc(db, 'reactions', existingDoc.id), { emoji });
-    }
-  } else {
-    // Нет реакции — добавляем новую
-    await addDoc(collection(db, 'reactions'), {
-      postId: post.id,
-      userId: currentUser.uid,
-      emoji,
-      createdAt: Timestamp.now()
-    });
-  }
-
-  setShowReactions(false);
-
-  // Обновляем отображение
-  const q2 = query(collection(db, 'reactions'), where('postId', '==', post.id));
-  const snapshot2 = await getDocs(q2);
-  const reacts: Record<string, string[]> = {};
-  snapshot2.docs.forEach(doc => {
-    const data = doc.data();
-    if (!reacts[data.emoji]) reacts[data.emoji] = [];
-    reacts[data.emoji].push(data.userId);
-  });
-  setReactions(reacts);
-};
+  const handleReaction = async (emoji: string) => {
+    if (!currentUser) return;
+    try {
+      const userReactionQuery = query(collection(db, 'reactions'), where('postId', '==', post.id), where('userId', '==', currentUser.uid));
+      const userSnapshot = await getDocs(userReactionQuery);
+      if (!userSnapshot.empty) {
+        const existingDoc = userSnapshot.docs[0];
+        const existingEmoji = existingDoc.data().emoji;
+        if (existingEmoji === emoji) { await deleteDoc(doc(db, 'reactions', existingDoc.id)); }
+        else { await updateDoc(doc(db, 'reactions', existingDoc.id), { emoji }); }
+      } else {
+        await addDoc(collection(db, 'reactions'), { postId: post.id, userId: currentUser.uid, emoji, createdAt: Timestamp.now() });
+      }
+      setShowReactions(false);
+      const q2 = query(collection(db, 'reactions'), where('postId', '==', post.id));
+      const snapshot2 = await getDocs(q2);
+      const reacts: Record<string, string[]> = {};
+      snapshot2.docs.forEach(doc => { const data = doc.data(); if (!reacts[data.emoji]) reacts[data.emoji] = []; reacts[data.emoji].push(data.userId); });
+      setReactions(reacts);
+    } catch (error) { console.error('Ошибка реакции:', error); }
+  };
 
   const renderFormattedText = () => {
     const parts = post.text.split(/(\*\*.*?\*\*|\*.*?\*|\[.*?\]\(.*?\))/g);
@@ -205,7 +181,7 @@ const handleReaction = async (emoji: string) => {
             <button onClick={() => setMenuOpen(!menuOpen)} className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors p-1 rounded-lg hover:bg-white/10"><MoreHorizontal className="w-5 h-5" /></button>
             <AnimatePresence>
               {menuOpen && (
-                <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} className="absolute right-0 mt-2 w-48 bg-[var(--bg-secondary)] backdrop-blur-xl rounded-xl shadow-xl border border-[var(--border-color)] overflow-hidden z-20" style={{ zIndex: 99999 }}>
+                <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} className="absolute right-0 mt-2 w-48 bg-[var(--bg-secondary)] backdrop-blur-xl rounded-xl shadow-xl border border-[var(--border-color)] overflow-hidden" style={{ zIndex: 99999 }}>
                   <button onClick={() => { navigator.clipboard?.writeText(`https://app.example/post/${post.id}`); setMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-3 text-sm text-[var(--text-primary)] hover:bg-white/10"><Copy className="w-4 h-4" /> Скопировать ссылку</button>
                   <button onClick={() => { setShowReport(true); setMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-400 hover:bg-white/10"><Flag className="w-4 h-4" /> Пожаловаться</button>
                   {isAuthor && (
@@ -222,7 +198,7 @@ const handleReaction = async (emoji: string) => {
 
         {renderMedia()}
 
-        <div className="flex items-center gap-4 mt-4 text-[var(--text-secondary)] flex-wrap">
+        <div className="flex items-center gap-2 mt-4 text-[var(--text-secondary)]">
           <div className="relative">
             <button onClick={handleLike} className={`flex items-center gap-1.5 transition-colors ${liked ? "text-red-500" : "hover:text-[var(--text-primary)]"}`}><Heart className={`w-5 h-5 ${liked ? "fill-current" : ""}`} /><span className="text-sm">{post.likes?.length || 0}</span></button>
             <AnimatePresence>{showLikeAnimation && <motion.div initial={{ opacity: 1, y: 0, scale: 0.5 }} animate={{ opacity: 0, y: -30, scale: 1.5 }} exit={{ opacity: 0 }} transition={{ duration: 0.5 }} className="absolute left-1/2 -top-6 -translate-x-1/2 pointer-events-none"><span className="text-xl">❤️</span></motion.div>}</AnimatePresence>
@@ -230,26 +206,37 @@ const handleReaction = async (emoji: string) => {
 
           <button onClick={() => setShowComments(true)} className="flex items-center gap-1.5 hover:text-[var(--text-primary)] transition-colors"><MessageCircle className="w-5 h-5" /><span className="text-sm">{post.commentsCount || 0}</span></button>
 
-          <div className="relative">
-            <button onClick={() => setShowReactions(!showReactions)} className="flex items-center gap-1.5 hover:text-[var(--text-primary)] transition-colors">
-              <span className="text-sm">😊</span>
-              {Object.values(reactions).reduce((sum, arr) => sum + arr.length, 0) > 0 && <span className="text-xs">{Object.values(reactions).reduce((sum, arr) => sum + arr.length, 0)}</span>}
-            </button>
-            {showReactions && (
-              <div className="absolute bottom-full left-0 mb-2 bg-[var(--bg-secondary)] backdrop-blur-xl rounded-xl shadow-xl border border-[var(--border-color)] p-2 flex gap-1 z-30">
-                {quickEmojis.map(emoji => <button key={emoji} onClick={() => handleReaction(emoji)} className="p-1.5 hover:bg-white/10 rounded-lg text-lg transition-colors">{emoji}</button>)}
-              </div>
-            )}
-            {Object.keys(reactions).length > 0 && (
-              <span className="flex items-center gap-0.5 ml-1">
-                {Object.entries(reactions).slice(0, 3).map(([emoji]) => <span key={emoji} className="text-xs">{emoji}</span>)}
-              </span>
-            )}
-          </div>
-
+         <div className="relative flex items-center gap-1">
+  {Object.keys(reactions).length > 0 && (
+    <div className="flex gap-0.5">
+      {Object.entries(reactions).map(([emoji, users]) => (
+        <button
+          key={emoji}
+          onClick={() => handleReaction(emoji)}
+          className="bg-white/10 hover:bg-white/20 rounded-full px-1.5 py-0.5 text-xs flex items-center gap-0.5 transition-colors"
+        >
+          <span>{emoji}</span>
+          <span className="text-[var(--text-secondary)]">{users.length}</span>
+        </button>
+      ))}
+    </div>
+  )}
+  <button onClick={() => setShowReactions(!showReactions)} className="flex items-center hover:text-[var(--text-primary)] transition-colors">
+    <span className="text-sm">😊</span>
+  </button>
+  {showReactions && (
+    <div className="absolute bottom-full left-0 mb-2 bg-[var(--bg-secondary)] backdrop-blur-xl rounded-xl shadow-xl border border-[var(--border-color)] p-2 flex gap-1 z-50" onClick={(e) => e.stopPropagation()}>
+      {quickEmojis.map(emoji => (
+        <button key={emoji} onClick={(e) => { e.stopPropagation(); handleReaction(emoji); }} className="p-1.5 hover:bg-white/10 rounded-lg text-lg transition-colors">{emoji}</button>
+      ))}
+    </div>
+  )}
+</div>
           <button className="flex items-center gap-1.5 hover:text-[var(--text-primary)] transition-colors"><Share2 className="w-5 h-5" /><span className="text-sm">Поделиться</span></button>
           <button onClick={toggleBookmark} className={`flex items-center gap-1.5 transition-colors ${saved ? 'text-yellow-400' : 'hover:text-[var(--text-primary)]'}`}>{saved ? <BookmarkCheck className="w-5 h-5 fill-current" /> : <Bookmark className="w-5 h-5" />}</button>
         </div>
+
+
 
         {showComments && <CommentsModal postId={post.id} onClose={() => setShowComments(false)} />}
         {showReport && <ReportModal postId={post.id} onClose={() => setShowReport(false)} />}

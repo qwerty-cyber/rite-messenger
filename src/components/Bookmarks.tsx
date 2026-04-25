@@ -16,44 +16,34 @@ export const Bookmarks: React.FC = () => {
       return;
     }
 
-    try {
-      const q = query(
-        collection(db, 'bookmarks'),
-        where('userId', '==', currentUser.uid),
-        orderBy('createdAt', 'desc')
-      );
+    const q = query(
+      collection(db, 'bookmarks'),
+      where('userId', '==', currentUser.uid),
+      orderBy('createdAt', 'desc')
+    );
 
-      const unsubscribe = onSnapshot(q,
-        (snapshot) => {
-          const posts = snapshot.docs
-            .map(doc => {
-              const data = doc.data();
-              // Проверяем, что post существует
-              if (data.post && data.post.id) {
-                return {
-                  ...data.post,
-                  bookmarkId: doc.id
-                } as Post & { bookmarkId: string };
-              }
-              return null;
-            })
-            .filter(Boolean); // Убираем null значения
-          setBookmarkedPosts(posts as any[]);
-          setLoading(false);
-        },
-        (error) => {
-          console.error('Ошибка загрузки закладок:', error);
-          setBookmarkedPosts([]);
-          setLoading(false);
-        }
-      );
+    const unsubscribe = onSnapshot(q,
+      (snapshot) => {
+        const posts = snapshot.docs
+          .map(doc => {
+            const data = doc.data();
+            if (data.post && data.post.id) {
+              return { ...data.post, bookmarkId: doc.id } as Post & { bookmarkId: string };
+            }
+            return null;
+          })
+          .filter(Boolean);
+        setBookmarkedPosts(posts as any[]);
+        setLoading(false);
+      },
+      (error) => {
+        console.error('Ошибка загрузки закладок:', error);
+        setBookmarkedPosts([]);
+        setLoading(false);
+      }
+    );
 
-      return () => unsubscribe();
-    } catch (error) {
-      console.error('Ошибка в Bookmarks:', error);
-      setLoading(false);
-      return () => {};
-    }
+    return () => unsubscribe();
   }, [currentUser]);
 
   return (
@@ -68,9 +58,7 @@ export const Bookmarks: React.FC = () => {
           {loading ? (
             <div className="text-center text-[var(--text-secondary)] py-8">Загрузка...</div>
           ) : bookmarkedPosts.length === 0 ? (
-            <div className="text-center text-[var(--text-secondary)] py-8">
-              Нет сохранённых постов
-            </div>
+            <div className="text-center text-[var(--text-secondary)] py-8">Нет сохранённых постов</div>
           ) : (
             bookmarkedPosts.map(post => (
               <PostCard key={post.id} post={post} />

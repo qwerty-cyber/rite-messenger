@@ -12,6 +12,7 @@ interface Chat {
   participants: string[];
   lastMessage?: string;
   updatedAt?: any;
+  lastRead?: Record<string, any>;
   isGroup?: boolean;
   groupName?: string;
 }
@@ -64,20 +65,23 @@ export const ChatList: React.FC = () => {
     return otherUser?.online || false;
   };
 
+  // Проверка непрочитанных
+  const hasUnread = (chat: Chat) => {
+    if (!currentUser || !chat.updatedAt) return false;
+    const lastRead = chat.lastRead?.[currentUser.uid]?.toMillis() || 0;
+    const updatedAt = chat.updatedAt?.toMillis() || 0;
+    return updatedAt > lastRead;
+  };
+
   return (
     <div className="w-full h-full flex flex-col bg-black/40 backdrop-blur-xl">
-      {/* Заголовок — фиксированный */}
       <div className="p-4 border-b border-[var(--border-color)] flex items-center flex-shrink-0">
         <h2 className="text-xl font-bold text-[var(--text-primary)]">Сообщения</h2>
-        <button
-          onClick={() => setShowCreateGroup(true)}
-          className="ml-auto p-1.5 rounded-lg hover:bg-white/10 text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
-        >
+        <button onClick={() => setShowCreateGroup(true)} className="ml-auto p-1.5 rounded-lg hover:bg-white/10 text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors">
           <Plus size={20} />
         </button>
       </div>
 
-      {/* Список чатов — скроллируемый */}
       <div className="flex-1 overflow-y-auto">
         {chats.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center text-[var(--text-secondary)] py-8 px-4">
@@ -94,10 +98,15 @@ export const ChatList: React.FC = () => {
                 <Avatar src={getChatAvatar(chat)} name={getChatName(chat)} size="md" online={getChatOnline(chat)} />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="font-medium truncate text-[var(--text-primary)]">{getChatName(chat)}</span>
+                    <span className={`truncate ${hasUnread(chat) ? 'font-bold text-[var(--text-primary)]' : 'font-medium text-[var(--text-primary)]'}`}>
+                      {getChatName(chat)}
+                    </span>
+                    {hasUnread(chat) && <span className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0" />}
                     {chat.isGroup && <span className="text-xs text-blue-400 flex-shrink-0">Группа</span>}
                   </div>
-                  <div className="text-sm text-[var(--text-secondary)] truncate">{chat.lastMessage || 'Нет сообщений'}</div>
+                  <div className={`text-sm truncate ${hasUnread(chat) ? 'font-medium text-[var(--text-primary)]' : 'text-[var(--text-secondary)]'}`}>
+                    {chat.lastMessage || 'Нет сообщений'}
+                  </div>
                 </div>
               </div>
             </div>

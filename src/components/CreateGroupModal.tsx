@@ -88,7 +88,7 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({ onClose }) =
   return (
     <div className="fixed inset-0 z-[99999] flex items-center justify-center">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative glass-heavy rounded-2xl w-[95%] max-w-md max-h-[80vh] overflow-y-auto shadow-2xl z-10">
+      <div className="relative bg-[var(--bg-secondary)] rounded-2xl w-[95%] max-w-md max-h-[80vh] overflow-y-auto shadow-2xl z-10">
         <div className="p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-bold text-[var(--text-primary)] flex items-center gap-2">

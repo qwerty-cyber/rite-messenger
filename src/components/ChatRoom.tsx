@@ -26,7 +26,7 @@ export const ChatRoom: React.FC = () => {
   const [chatData, setChatData] = useState<any>(null);
   const [users, setUsers] = useState<Record<string, any>>({});
   const [blocked, setBlocked] = useState(false);
-  const [showSidebar, setShowSidebar] = useState(true);
+  const [showSidebar, setShowSidebar] = useState(window.innerWidth > 768);
   const [replyTo, setReplyTo] = useState<{ id: string; text: string } | null>(null);
   const [contextMenu, setContextMenu] = useState<{
     visible: boolean; x: number; y: number; messageId: string | null;
@@ -75,14 +75,34 @@ export const ChatRoom: React.FC = () => {
           };
           checkBlock();
         }
+        // Обновляем lastRead при входе в чат
+        updateDoc(doc(db, 'chats', chatId), {
+          [`lastRead.${currentUser.uid}`]: Timestamp.now()
+        }).catch(() => {});
       }
     });
     const q = query(collection(db, 'chats', chatId, 'messages'), orderBy('createdAt', 'asc'));
-    const unsubscribeMessages = onSnapshot(q, (snapshot) => setMessages(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Message))));
+    const unsubscribeMessages = onSnapshot(q, (snapshot) => {
+      const msgs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Message));
+      // Уведомление о новом сообщении
+      const lastDoc = snapshot.docChanges().find(c => c.type === 'added');
+      if (lastDoc && currentUser) {
+        const msgData = lastDoc.doc.data();
+        const isNew = msgData.createdAt && (Timestamp.now().toMillis() - msgData.createdAt.toMillis()) < 3000;
+        if (isNew && msgData.senderId !== currentUser.uid && document.visibilityState !== 'visible') {
+          const senderName = msgData.senderName || getChatTitle();
+          showNotification(
+            `Новое сообщение от ${senderName}`,
+            msgData.isVoice ? '🎤 Голосовое сообщение' : msgData.text,
+            isGroup ? chatData?.groupPhoto : otherUser?.photoURL
+          );
+        }
+      }
+      setMessages(msgs);
+    });
     return () => { unsubscribeChat(); unsubscribeMessages(); };
   }, [chatId, currentUser]);
 
-  // Загрузка реакций на сообщения
   useEffect(() => {
     if (!chatId) return;
     const loadMessageReactions = async () => {
@@ -106,6 +126,23 @@ export const ChatRoom: React.FC = () => {
     const handleClick = () => setContextMenu(prev => ({ ...prev, visible: false }));
     if (contextMenu.visible) { document.addEventListener('click', handleClick); return () => document.removeEventListener('click', handleClick); }
   }, [contextMenu.visible]);
+
+  useEffect(() => {
+    const handleResize = () => { if (window.innerWidth <= 768) setShowSidebar(false); };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const showNotification = (title: string, body: string, icon?: string) => {
+    if (!('Notification' in window)) return;
+    if (Notification.permission === 'granted') {
+      try { new Notification(title, { body, icon: icon || undefined }); } catch (error) {}
+    } else if (Notification.permission === 'default') {
+      Notification.requestPermission().then(permission => {
+        if (permission === 'granted') new Notification(title, { body, icon: icon || undefined });
+      });
+    }
+  };
 
   const updateTypingStatus = async (isTyping: boolean) => {
     if (!currentUser || !chatId) return;
@@ -162,22 +199,12 @@ export const ChatRoom: React.FC = () => {
       const userReactionQuery = query(collection(db, 'messageReactions'), where('messageId', '==', msgId), where('userId', '==', currentUser.uid));
       const userSnapshot = await getDocs(userReactionQuery);
       const hadThisEmoji = userSnapshot.docs.some(d => d.data().emoji === emoji);
-
       userSnapshot.docs.forEach(async (d) => await deleteDoc(doc(db, 'messageReactions', d.id)));
-
-      if (!hadThisEmoji) {
-        await addDoc(collection(db, 'messageReactions'), { messageId: msgId, chatId, userId: currentUser.uid, emoji, createdAt: Timestamp.now() });
-      }
-
+      if (!hadThisEmoji) await addDoc(collection(db, 'messageReactions'), { messageId: msgId, chatId, userId: currentUser.uid, emoji, createdAt: Timestamp.now() });
       const q = query(collection(db, 'messageReactions'), where('chatId', '==', chatId));
       const snapshot = await getDocs(q);
       const reacts: Record<string, Record<string, string[]>> = {};
-      snapshot.docs.forEach(doc => {
-        const data = doc.data();
-        if (!reacts[data.messageId]) reacts[data.messageId] = {};
-        if (!reacts[data.messageId][data.emoji]) reacts[data.messageId][data.emoji] = [];
-        reacts[data.messageId][data.emoji].push(data.userId);
-      });
+      snapshot.docs.forEach(doc => { const data = doc.data(); if (!reacts[data.messageId]) reacts[data.messageId] = {}; if (!reacts[data.messageId][data.emoji]) reacts[data.messageId][data.emoji] = []; reacts[data.messageId][data.emoji].push(data.userId); });
       setMessageReactions(reacts);
     } catch (error) { console.error('Ошибка реакции:', error); }
     setShowMsgReactions(null);
@@ -185,18 +212,20 @@ export const ChatRoom: React.FC = () => {
 
   const startRecording = async () => {
     try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { alert('Ваш браузер не поддерживает запись голоса'); return; }
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
       chunksRef.current = [];
       const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
       recorder.ondataavailable = (e) => chunksRef.current.push(e.data);
+      recorder.onerror = () => { alert('Ошибка записи. Проверьте разрешения микрофона.'); setIsRecording(false); };
       recorder.start();
       setMediaRecorder(recorder);
       setIsRecording(true);
       setRecordingTime(0);
       let seconds = 0;
       recordingTimerRef.current = setInterval(() => { seconds++; setRecordingTime(seconds); }, 1000);
-    } catch (error) { console.error('Ошибка доступа к микрофону:', error); alert('Нет доступа к микрофону'); }
+    } catch (error) { console.error('Ошибка доступа к микрофону:', error); alert('Нет доступа к микрофону. Разрешите доступ в настройках браузера.'); }
   };
 
   const stopRecording = () => {
@@ -218,9 +247,14 @@ export const ChatRoom: React.FC = () => {
   const sendVoiceMessage = async (file: File, duration: number) => {
     if (!currentUser || !chatId) return;
     try {
-      const audioUrl = URL.createObjectURL(file);
-      await addDoc(collection(db, 'chats', chatId, 'messages'), { text: '🎤 Голосовое сообщение', senderId: currentUser.uid, senderName: currentUser.displayName || 'Пользователь', createdAt: Timestamp.now(), isVoice: true, voiceDuration: duration, voiceUrl: audioUrl });
-      await updateDoc(doc(db, 'chats', chatId), { lastMessage: '🎤 Голосовое сообщение', updatedAt: Timestamp.now() });
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const voiceUrl = reader.result as string;
+        await addDoc(collection(db, 'chats', chatId, 'messages'), { text: '🎤 Голосовое сообщение', senderId: currentUser.uid, senderName: currentUser.displayName || 'Пользователь', createdAt: Timestamp.now(), isVoice: true, voiceDuration: duration, voiceUrl: voiceUrl });
+        await updateDoc(doc(db, 'chats', chatId), { lastMessage: '🎤 Голосовое сообщение', updatedAt: Timestamp.now() });
+      };
+      reader.onerror = () => { console.error('Ошибка чтения файла'); };
+      reader.readAsDataURL(file);
     } catch (error) { console.error('Ошибка отправки голосового:', error); }
   };
 
@@ -256,22 +290,29 @@ export const ChatRoom: React.FC = () => {
                     {msg.replyTo && <div className="text-xs text-[var(--text-secondary)] mb-0.5 ml-1 border-l-2 border-blue-400 pl-2">{msg.replyTo.text?.substring(0, 50)}{(msg.replyTo.text?.length || 0) > 50 ? '...' : ''}</div>}
                     <div className={`inline-block px-3 py-1.5 rounded-xl text-sm break-words ${isMyMessage ? 'bg-blue-500 text-white rounded-br-sm' : 'glass text-[var(--text-primary)] rounded-bl-sm'}`}>
                       {msg.isVoice ? (
-                        <div className="flex items-center gap-2 min-w-[140px]">
-                          <button onClick={() => { const audio = document.getElementById(`audio-${msg.id}`) as HTMLAudioElement; if (audio) { if (audio.paused) { document.querySelectorAll('audio').forEach(a => a.pause()); audio.play(); } else { audio.pause(); } } }} className="p-1.5 bg-white/20 rounded-full hover:bg-white/30 transition-colors">▶️</button>
-                          <div className="flex-1"><div className="h-1.5 bg-white/20 rounded-full overflow-hidden"><div className="h-full bg-white/60 rounded-full transition-all duration-300" style={{ width: '0%' }} id={`progress-${msg.id}`} /></div></div>
-                          <audio id={`audio-${msg.id}`} src={msg.voiceUrl} onTimeUpdate={(e) => { const audio = e.target as HTMLAudioElement; const progress = document.getElementById(`progress-${msg.id}`); if (progress) progress.style.width = `${(audio.currentTime / (audio.duration || 1)) * 100}%`; }} onEnded={() => { const progress = document.getElementById(`progress-${msg.id}`); if (progress) progress.style.width = '0%'; }} className="hidden" />
-                          <span className="text-xs opacity-70 whitespace-nowrap">{msg.voiceDuration}с</span>
+                        <div className="flex items-center gap-2 min-w-[180px] py-1">
+                          {msg.voiceUrl && msg.voiceUrl.startsWith('data:') ? (
+                            <>
+                              <button onClick={(e) => { const audio = (e.target as HTMLElement).parentElement?.querySelector('audio') as HTMLAudioElement; if (audio) { if (audio.paused) { document.querySelectorAll('audio').forEach(a => a.pause()); audio.play(); } else { audio.pause(); } } }} className="p-2 bg-white/20 rounded-full hover:bg-white/30 transition-colors flex-shrink-0">▶️</button>
+                              <div className="flex-1 min-w-0">
+                                <div className="text-xs text-[var(--text-primary)] mb-0.5">🎤 Голосовое сообщение</div>
+                                <audio src={msg.voiceUrl} className="hidden" preload="metadata" />
+                                <div className="flex items-center gap-2">
+                                  <div className="flex-1 h-1 bg-white/20 rounded-full overflow-hidden"><div className="h-full bg-blue-500 rounded-full" style={{ width: '0%' }} /></div>
+                                  <span className="text-xs opacity-70 whitespace-nowrap">{msg.voiceDuration}с</span>
+                                </div>
+                              </div>
+                            </>
+                          ) : (
+                            <span className="text-xs opacity-50">🎤 Голосовое ({msg.voiceDuration}с)</span>
+                          )}
                         </div>
                       ) : (renderMessageText(msg.text, isMyMessage))}
                     </div>
-                    {/* Реакции под сообщением */}
                     {messageReactions[msg.id] && Object.keys(messageReactions[msg.id]).length > 0 && (
                       <div className={`flex gap-1 mt-0.5 ${isMyMessage ? 'justify-end' : 'justify-start'}`}>
                         {Object.entries(messageReactions[msg.id]).map(([emoji, users]) => (
-                          <button key={emoji} onClick={() => handleMessageReaction(msg.id, emoji)} className="bg-white/10 hover:bg-white/20 rounded-full px-1.5 py-0.5 text-xs flex items-center gap-1 transition-colors">
-                            <span>{emoji}</span>
-                            <span className="text-[var(--text-secondary)]">{users.length}</span>
-                          </button>
+                          <button key={emoji} onClick={() => handleMessageReaction(msg.id, emoji)} className="bg-white/10 hover:bg-white/20 rounded-full px-1.5 py-0.5 text-xs flex items-center gap-1 transition-colors"><span>{emoji}</span><span className="text-[var(--text-secondary)]">{users.length}</span></button>
                         ))}
                       </div>
                     )}
@@ -300,7 +341,7 @@ export const ChatRoom: React.FC = () => {
         ) : (
           <form onSubmit={sendMessage} className="p-3 border-t border-[var(--border-color)] bg-white/5 backdrop-blur-xl flex gap-2">
             <button type="button" onClick={startRecording} className="p-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors text-lg">🎤</button>
-            <input type="text" value={newMessage} onChange={handleInputChange} placeholder="Сообщение..." className="flex-1 px-4 py-2 bg-white/10 rounded-xl text-[var(--text-primary)] placeholder-[var(--text-secondary)] focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+            <input type="text" value={newMessage} onChange={handleInputChange} placeholder="Сообщение..." className="flex-1 px-4 py-2 glass border border-[var(--glass-border)] rounded-xl text-[var(--text-primary)] placeholder-[var(--text-secondary)] focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
             <button type="submit" className="px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded-xl font-medium text-sm transition-colors disabled:opacity-50 flex-shrink-0" disabled={!newMessage.trim()}>Отправить</button>
           </form>
         )}
