@@ -6,7 +6,7 @@ import { collection, addDoc } from 'firebase/firestore';
 import { useQueryClient } from '@tanstack/react-query';
 import { PollCreator } from './PollCreator';
 
-const IMGBB_API_KEY = 'твой_ключ_здесь';
+const IMGBB_API_KEY = 'b8c24511b197ee87dab7b596a47bac90';
 
 export const CreatePostBar: React.FC = () => {
   const [text, setText] = useState('');
@@ -21,50 +21,89 @@ export const CreatePostBar: React.FC = () => {
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
+
     const newFiles = files.slice(0, 10);
     setMediaFiles(prev => [...prev, ...newFiles]);
-    setPreviewUrls(prev => [...prev, ...newFiles.map(file => URL.createObjectURL(file))]);
+    const newPreviews = newFiles.map(file => URL.createObjectURL(file));
+    setPreviewUrls(prev => [...prev, ...newPreviews]);
     setShowAttachmentMenu(false);
   };
 
   const removeMedia = (index: number) => {
     setMediaFiles(prev => prev.filter((_, i) => i !== index));
-    setPreviewUrls(prev => { const newUrls = [...prev]; URL.revokeObjectURL(newUrls[index]); return newUrls.filter((_, i) => i !== index); });
+    setPreviewUrls(prev => {
+      const newUrls = [...prev];
+      URL.revokeObjectURL(newUrls[index]);
+      return newUrls.filter((_, i) => i !== index);
+    });
   };
 
   const uploadFile = async (file: File): Promise<string> => {
-    const formData = new FormData(); formData.append('image', file);
-    const response = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, { method: 'POST', body: formData });
+    const formData = new FormData();
+    formData.append('image', file);
+
+    const response = await fetch(
+      `https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`,
+      { method: 'POST', body: formData }
+    );
+
+    if (!response.ok) throw new Error('Ошибка загрузки');
     const data = await response.json();
-    if (data.success) return data.data.url;
-    throw new Error('Ошибка загрузки');
+    if (data.success) {
+      return data.data.url;
+    } else {
+      throw new Error('Ошибка загрузки на ImgBB');
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!auth.currentUser) return;
     if (!text.trim() && mediaFiles.length === 0) return;
+
     setLoading(true);
     try {
       let media: { type: string; url: string }[] = [];
+
       if (mediaFiles.length > 0) {
         const mediaUrls = await Promise.all(mediaFiles.map(file => uploadFile(file)));
         media = mediaUrls.map(url => ({ type: 'image' as const, url }));
       }
+
       await addDoc(collection(db, 'posts'), {
-        text: text.trim(), media, authorId: auth.currentUser.uid,
+        text: text.trim(),
+        media,
+        authorId: auth.currentUser.uid,
         authorName: auth.currentUser.displayName || 'Пользователь',
-        authorPhotoURL: auth.currentUser.photoURL || null, createdAt: new Date(),
-        likes: [], commentsCount: 0,
+        authorPhotoURL: auth.currentUser.photoURL || null,
+        createdAt: new Date(),
+        likes: [],
+        commentsCount: 0,
       });
+
       queryClient.invalidateQueries({ queryKey: ['posts'] });
-      setText(''); previewUrls.forEach(url => URL.revokeObjectURL(url)); setMediaFiles([]); setPreviewUrls([]);
-    } catch (error) { console.error('Ошибка публикации:', error); alert('Не удалось опубликовать пост'); }
-    finally { setLoading(false); }
+
+      setText('');
+      previewUrls.forEach(url => URL.revokeObjectURL(url));
+      setMediaFiles([]);
+      setPreviewUrls([]);
+    } catch (error) {
+      console.error('Ошибка публикации:', error);
+      alert('Не удалось опубликовать пост');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handlePoll = () => { setShowAttachmentMenu(false); setShowPollCreator(true); };
-  const handleAudio = () => { alert('Запись аудио будет доступна позже!'); setShowAttachmentMenu(false); };
+  const handlePoll = () => {
+    setShowAttachmentMenu(false);
+    setShowPollCreator(true);
+  };
+
+  const handleAudio = () => {
+    alert('Запись аудио будет доступна позже!');
+    setShowAttachmentMenu(false);
+  };
 
   return (
     <>
@@ -75,7 +114,9 @@ export const CreatePostBar: React.FC = () => {
               {previewUrls.map((url, index) => (
                 <div key={index} className="relative flex-shrink-0 w-14 h-14 sm:w-16 sm:h-16 rounded-lg overflow-hidden">
                   <img src={url} alt="" className="w-full h-full object-cover" />
-                  <button onClick={() => removeMedia(index)} className="absolute top-0.5 right-0.5 p-0.5 bg-black/60 rounded-full text-white"><X size={12} /></button>
+                  <button onClick={() => removeMedia(index)} className="absolute top-0.5 right-0.5 p-0.5 bg-black/60 rounded-full text-white">
+                    <X size={12} />
+                  </button>
                 </div>
               ))}
             </div>
@@ -86,18 +127,39 @@ export const CreatePostBar: React.FC = () => {
               <button type="button" onClick={() => setShowAttachmentMenu(!showAttachmentMenu)} className="p-1.5 sm:p-2 rounded-full text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-white/10 transition-colors">
                 <Plus size={20} />
               </button>
+
               {showAttachmentMenu && (
                 <div className="absolute bottom-full left-0 mb-2 w-44 sm:w-48 bg-[var(--bg-secondary)] backdrop-blur-xl rounded-xl shadow-xl border border-[var(--border-color)] overflow-hidden z-20">
-                  <button type="button" onClick={() => { fileInputRef.current?.setAttribute('accept', 'image/*,video/*'); fileInputRef.current?.click(); }} className="w-full flex items-center gap-3 px-3 py-2.5 sm:px-4 sm:py-3 text-sm text-[var(--text-primary)] hover:bg-white/10"><Image size={18} />Фото или видео</button>
-                  <button type="button" onClick={() => { fileInputRef.current?.setAttribute('accept', '*/*'); fileInputRef.current?.click(); }} className="w-full flex items-center gap-3 px-3 py-2.5 sm:px-4 sm:py-3 text-sm text-[var(--text-primary)] hover:bg-white/10"><File size={18} />Файл</button>
-                  <button type="button" onClick={handlePoll} className="w-full flex items-center gap-3 px-3 py-2.5 sm:px-4 sm:py-3 text-sm text-[var(--text-primary)] hover:bg-white/10"><BarChart2 size={18} />Опрос</button>
-                  <button type="button" onClick={handleAudio} className="w-full flex items-center gap-3 px-3 py-2.5 sm:px-4 sm:py-3 text-sm text-[var(--text-primary)] hover:bg-white/10"><Mic size={18} />Аудио</button>
+                  <button type="button" onClick={() => { fileInputRef.current?.setAttribute('accept', 'image/*,video/*'); fileInputRef.current?.click(); }} className="w-full flex items-center gap-3 px-3 py-2.5 sm:px-4 sm:py-3 text-sm text-[var(--text-primary)] hover:bg-white/10">
+                    <Image size={18} /> Фото или видео
+                  </button>
+                  <button type="button" onClick={() => { fileInputRef.current?.setAttribute('accept', '*/*'); fileInputRef.current?.click(); }} className="w-full flex items-center gap-3 px-3 py-2.5 sm:px-4 sm:py-3 text-sm text-[var(--text-primary)] hover:bg-white/10">
+                    <File size={18} /> Файл
+                  </button>
+                  <button type="button" onClick={handlePoll} className="w-full flex items-center gap-3 px-3 py-2.5 sm:px-4 sm:py-3 text-sm text-[var(--text-primary)] hover:bg-white/10">
+                    <BarChart2 size={18} /> Опрос
+                  </button>
+                  <button type="button" onClick={handleAudio} className="w-full flex items-center gap-3 px-3 py-2.5 sm:px-4 sm:py-3 text-sm text-[var(--text-primary)] hover:bg-white/10">
+                    <Mic size={18} /> Аудио
+                  </button>
                 </div>
               )}
             </div>
 
             <div className="flex-1 bg-white/10 backdrop-blur-md rounded-2xl px-3 py-1.5 sm:px-4 sm:py-2 max-h-24 sm:max-h-32 overflow-y-auto">
-              <textarea value={text} onChange={(e) => setText(e.target.value)} placeholder="Написать..." className="w-full bg-transparent text-[var(--text-primary)] placeholder-[var(--text-secondary)] resize-none outline-none text-xs sm:text-sm" rows={1} style={{ minHeight: '20px', maxHeight: '80px' }} onInput={(e) => { const target = e.target as HTMLTextAreaElement; target.style.height = 'auto'; target.style.height = Math.min(target.scrollHeight, 80) + 'px'; }} />
+              <textarea
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                placeholder="Написать..."
+                className="w-full bg-transparent text-[var(--text-primary)] placeholder-[var(--text-secondary)] resize-none outline-none text-xs sm:text-sm"
+                rows={1}
+                style={{ minHeight: '20px', maxHeight: '80px' }}
+                onInput={(e) => {
+                  const target = e.target as HTMLTextAreaElement;
+                  target.style.height = 'auto';
+                  target.style.height = Math.min(target.scrollHeight, 80) + 'px';
+                }}
+              />
             </div>
 
             <button type="submit" disabled={loading || (!text.trim() && mediaFiles.length === 0)} className="p-1.5 sm:p-2 rounded-full text-blue-500 hover:bg-blue-500/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex-shrink-0">
@@ -109,7 +171,9 @@ export const CreatePostBar: React.FC = () => {
         </div>
       </div>
 
-      {showPollCreator && <PollCreator onClose={() => setShowPollCreator(false)} onCreated={() => queryClient.invalidateQueries({ queryKey: ['posts'] })} />}
+      {showPollCreator && (
+        <PollCreator onClose={() => setShowPollCreator(false)} onCreated={() => queryClient.invalidateQueries({ queryKey: ['posts'] })} />
+      )}
     </>
   );
 };
