@@ -169,7 +169,7 @@ export const PollDisplay: React.FC<PollDisplayProps> = ({ pollId }) => {
         </div>
 
         <div className="flex items-start gap-2">
-          <BarChart2 size={20} className="text-blue-400 mt-0.5 flex-shrink-0" />
+          <BarChart2 size={20} className="text-accent mt-0.5 flex-shrink-0" />
           <span className="font-medium text-[var(--text-primary)]">{poll.question}</span>
           {userVoted && <span className="text-xs text-green-400 ml-auto flex-shrink-0">✓ Проголосовал</span>}
         </div>
@@ -182,9 +182,9 @@ export const PollDisplay: React.FC<PollDisplayProps> = ({ pollId }) => {
             const isSelected = option.votes?.includes(currentUser?.uid);
             return (
               <button key={index} onClick={() => handleVote(index)} className="w-full relative overflow-hidden rounded-xl bg-white/5 hover:bg-white/10 transition-colors p-3 text-left">
-                <div className="absolute inset-0 bg-blue-500/20 transition-all duration-500 rounded-xl" style={{ width: `${widthPercent}%` }} />
+                <div className="absolute inset-0 bg-accent/20 transition-all duration-500 rounded-xl" style={{ width: `${widthPercent}%` }} />
                 <div className="relative flex items-center justify-between">
-                  <span className="text-[var(--text-primary)] text-sm font-medium">{option.text}{isSelected && <span className="ml-2 text-xs text-blue-400">✓</span>}</span>
+                  <span className="text-[var(--text-primary)] text-sm font-medium">{option.text}{isSelected && <span className="ml-2 text-xs text-accent">✓</span>}</span>
                   <div className="flex items-center gap-2">
                     <span className="text-[var(--text-secondary)] text-xs">{voteCount}</span>
                     <span className="text-[var(--text-secondary)] text-xs">({percentage}%)</span>
@@ -241,7 +241,7 @@ export const PollDisplay: React.FC<PollDisplayProps> = ({ pollId }) => {
       {menuOpen && createPortal(
         <>
           <div className="fixed inset-0 z-[99998]" onClick={() => setMenuOpen(false)} />
-          <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} className="fixed bg-[var(--bg-secondary)] backdrop-blur-xl rounded-xl shadow-xl border border-[var(--border-color)] overflow-hidden" style={{ zIndex: 99999, top: `${menuPosition.top}px`, right: `${menuPosition.right}px`, minWidth: '192px' }}>
+          <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} className="fixed bg-[#1a1a3e] rounded-xl shadow-xl border border-[var(--border-color)] overflow-hidden" style={{ zIndex: 99999, top: `${menuPosition.top}px`, right: `${menuPosition.right}px`, minWidth: '192px' }}>
             <button onClick={() => { navigator.clipboard?.writeText(`https://rite-messenger.vercel.app/poll/${poll.id}`); setMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-3 text-sm text-[var(--text-primary)] hover:bg-white/10"><Copy className="w-4 h-4" /> Скопировать ссылку</button>
             <button onClick={() => { setShowReport(true); setMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-400 hover:bg-white/10"><Flag className="w-4 h-4" /> Пожаловаться</button>
             {isAuthor && (

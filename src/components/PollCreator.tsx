@@ -85,7 +85,7 @@ export const PollCreator: React.FC<PollCreatorProps> = ({ onClose, onCreated }) 
           {/* Шапка */}
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-bold text-[var(--text-primary)] flex items-center gap-2">
-              <BarChart2 size={20} className="text-blue-400" />
+              <BarChart2 size={20} className="text-accent" />
               Новый опрос
             </h3>
             <button
@@ -107,7 +107,7 @@ export const PollCreator: React.FC<PollCreatorProps> = ({ onClose, onCreated }) 
                 value={question}
                 onChange={(e) => setQuestion(e.target.value)}
                 placeholder="О чём хотите спросить?"
-                className="w-full px-4 py-3 bg-white/10 rounded-xl text-[var(--text-primary)] placeholder-[var(--text-secondary)] focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-4 py-3 bg-white/10 rounded-xl text-[var(--text-primary)] placeholder-[var(--text-secondary)] focus:outline-none focus:ring-2 focus:ring-accent"
                 required
               />
             </div>
@@ -125,7 +125,7 @@ export const PollCreator: React.FC<PollCreatorProps> = ({ onClose, onCreated }) 
                       value={option}
                       onChange={(e) => updateOption(index, e.target.value)}
                       placeholder={`Вариант ${index + 1}`}
-                      className="flex-1 px-4 py-3 bg-white/10 rounded-xl text-[var(--text-primary)] placeholder-[var(--text-secondary)] focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="flex-1 px-4 py-3 bg-white/10 rounded-xl text-[var(--text-primary)] placeholder-[var(--text-secondary)] focus:outline-none focus:ring-2 focus:ring-accent"
                       required
                     />
                     {options.length > 2 && (
@@ -147,7 +147,7 @@ export const PollCreator: React.FC<PollCreatorProps> = ({ onClose, onCreated }) 
               <button
                 type="button"
                 onClick={addOption}
-                className="flex items-center gap-2 text-blue-400 text-sm hover:underline transition-all"
+                className="flex items-center gap-2 text-accent text-sm hover:underline transition-all"
               >
                 <Plus size={16} />
                 Добавить вариант
@@ -166,7 +166,7 @@ export const PollCreator: React.FC<PollCreatorProps> = ({ onClose, onCreated }) 
               <button
                 type="submit"
                 disabled={loading}
-                className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 rounded-xl font-medium text-white disabled:opacity-50 transition-colors"
+                className="flex-1 py-3 bg-accent hover:bg-blue-700 rounded-xl font-medium text-white disabled:opacity-50 transition-colors"
               >
                 {loading ? 'Создание...' : 'Создать опрос'}
               </button>

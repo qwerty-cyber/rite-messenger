@@ -2,12 +2,12 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { db, auth } from '../lib/firebase';
-import { doc, getDoc, collection, query, where, orderBy, limit, startAfter, getDocs, addDoc, updateDoc, deleteDoc, Timestamp, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, orderBy, limit, startAfter, getDocs, addDoc, updateDoc, Timestamp, onSnapshot } from 'firebase/firestore';
 import { Avatar } from './Avatar';
 import { PostCard } from './PostCard';
 import { PollDisplay } from './PollDisplay';
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { ArrowLeft, UserPlus, UserCheck, Clock, Ban } from 'lucide-react';
+import { ArrowLeft, UserPlus, UserCheck, Clock, Ban, X } from 'lucide-react';
 import type { Post } from '../types';
 
 export const PublicProfile: React.FC = () => {
@@ -21,6 +21,7 @@ export const PublicProfile: React.FC = () => {
   const [friendsCount, setFriendsCount] = useState(0);
   const [polls, setPolls] = useState<any[]>([]);
   const [isBlocked, setIsBlocked] = useState(false);
+  const [avatarLightbox, setAvatarLightbox] = useState(false);
   const currentUser = auth.currentUser;
 
   useEffect(() => {
@@ -28,31 +29,23 @@ export const PublicProfile: React.FC = () => {
     const loadUser = async () => {
       try {
         const userDoc = await getDoc(doc(db, 'users', userId));
-        if (userDoc.exists()) setUserData(userDoc.data());
-        else { navigate('/'); return; }
-
+        if (userDoc.exists()) setUserData(userDoc.data()); else { navigate('/'); return; }
         const usernameDoc = await getDoc(doc(db, 'usernames', userId));
         if (usernameDoc.exists()) setUsername(usernameDoc.data().username);
-
         if (currentUser && currentUser.uid !== userId) {
           const friendsQuery = query(collection(db, 'friends'), where('participants', 'array-contains', currentUser.uid));
           const friendsSnap = await getDocs(friendsQuery);
           const existingRequest = friendsSnap.docs.find(doc => { const data = doc.data(); return data.participants.includes(userId); });
           if (existingRequest) { const data = existingRequest.data(); setFriendStatus(data.status); setFriendRequestId(existingRequest.id); }
-
-          // Проверка блокировки
           const blockQuery = query(collection(db, 'blocks'), where('blockerId', '==', currentUser.uid), where('blockedId', '==', userId));
           const blockSnap = await getDocs(blockQuery);
           setIsBlocked(!blockSnap.empty);
         }
-
-        const q = query(collection(db, 'friends'), where('participants', 'array-contains', userId), where('status', '==', 'accepted'));
-        const unsubscribe = onSnapshot(q, (snapshot) => setFriendsCount(snapshot.size));
-
-        const pollsQuery = query(collection(db, 'polls'), where('createdBy', '==', userId), orderBy('createdAt', 'desc'));
-        const unsubscribePolls = onSnapshot(pollsQuery, (snapshot) => setPolls(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))));
-
-        return () => { unsubscribe(); unsubscribePolls(); };
+        const fq = query(collection(db, 'friends'), where('participants', 'array-contains', userId), where('status', '==', 'accepted'));
+        const unsub1 = onSnapshot(fq, (snapshot) => setFriendsCount(snapshot.size));
+        const pq = query(collection(db, 'polls'), where('createdBy', '==', userId), orderBy('createdAt', 'desc'));
+        const unsub2 = onSnapshot(pq, (snapshot) => setPolls(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))));
+        return () => { unsub1(); unsub2(); };
       } catch (error) { console.error('Ошибка загрузки профиля:', error); } finally { setLoading(false); }
     };
     loadUser();
@@ -60,27 +53,14 @@ export const PublicProfile: React.FC = () => {
 
   const handleFriendAction = async () => {
     if (!currentUser || !userId) return;
-    if (friendStatus === 'none') {
-      const ref = await addDoc(collection(db, 'friends'), { requesterId: currentUser.uid, receiverId: userId, status: 'pending', participants: [currentUser.uid, userId], createdAt: Timestamp.now(), updatedAt: Timestamp.now() });
-      setFriendStatus('pending'); setFriendRequestId(ref.id);
-    } else if (friendStatus === 'accepted') {
-      if (friendRequestId) await updateDoc(doc(db, 'friends', friendRequestId), { status: 'removed', updatedAt: Timestamp.now() });
-      setFriendStatus('none'); setFriendRequestId(null);
-    }
+    if (friendStatus === 'none') { const ref = await addDoc(collection(db, 'friends'), { requesterId: currentUser.uid, receiverId: userId, status: 'pending', participants: [currentUser.uid, userId], createdAt: Timestamp.now(), updatedAt: Timestamp.now() }); setFriendStatus('pending'); setFriendRequestId(ref.id); }
+    else if (friendStatus === 'accepted') { if (friendRequestId) await updateDoc(doc(db, 'friends', friendRequestId), { status: 'removed', updatedAt: Timestamp.now() }); setFriendStatus('none'); setFriendRequestId(null); }
   };
 
   const handleBlock = async () => {
     if (!currentUser || !userId) return;
-    if (isBlocked) {
-      const q = query(collection(db, 'blocks'), where('blockerId', '==', currentUser.uid), where('blockedId', '==', userId));
-      const snapshot = await getDocs(q);
-      snapshot.docs.forEach(async (d) => await deleteDoc(doc(db, 'blocks', d.id)));
-      setIsBlocked(false);
-    } else {
-      await addDoc(collection(db, 'blocks'), { blockerId: currentUser.uid, blockedId: userId, createdAt: Timestamp.now() });
-      setIsBlocked(true);
-      if (friendRequestId) { await updateDoc(doc(db, 'friends', friendRequestId), { status: 'removed' }); setFriendStatus('none'); }
-    }
+    if (isBlocked) { const q = query(collection(db, 'blocks'), where('blockerId', '==', currentUser.uid), where('blockedId', '==', userId)); const snapshot = await getDocs(q); snapshot.docs.forEach(async (d) => await deleteDoc(doc(db, 'blocks', d.id))); setIsBlocked(false); }
+    else { await addDoc(collection(db, 'blocks'), { blockerId: currentUser.uid, blockedId: userId, createdAt: Timestamp.now() }); setIsBlocked(true); if (friendRequestId) { await updateDoc(doc(db, 'friends', friendRequestId), { status: 'removed' }); setFriendStatus('none'); } }
   };
 
   const fetchUserPosts = async ({ pageParam = null }: { pageParam?: any }) => {
@@ -90,87 +70,64 @@ export const PublicProfile: React.FC = () => {
     if (pageParam) q = query(collection(db, 'posts'), where('authorId', '==', userId), orderBy('createdAt', 'desc'), startAfter(pageParam), limit(postsPerPage));
     const snapshot = await getDocs(q);
     const lastVisible = snapshot.docs[snapshot.docs.length - 1];
-    const posts: Post[] = snapshot.docs.map(doc => {
-      const data = doc.data();
-      return { id: doc.id, channel: { id: data.authorId, name: data.authorName || 'Пользователь', avatar: data.authorPhotoURL || null }, text: data.text || '', publishedAt: data.createdAt?.toDate().toISOString() || new Date().toISOString(), media: data.media || [], likes: data.likes || [], commentsCount: data.commentsCount || 0, shares: 0, pinned: data.pinned || false };
-    });
+    const posts: Post[] = snapshot.docs.map(doc => { const data = doc.data(); return { id: doc.id, channel: { id: data.authorId, name: data.authorName || 'Пользователь', avatar: data.authorPhotoURL || null }, text: data.text || '', publishedAt: data.createdAt?.toDate().toISOString() || new Date().toISOString(), media: data.media || [], likes: data.likes || [], commentsCount: data.commentsCount || 0, shares: 0, pinned: data.pinned || false }; });
     return { posts, nextPage: lastVisible };
   };
 
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading: postsLoading } = useInfiniteQuery({ queryKey: ['user-posts', userId], queryFn: fetchUserPosts, getNextPageParam: (lastPage) => lastPage.nextPage, initialPageParam: null, enabled: !!userId });
-
   const observerRef = useRef<IntersectionObserver | null>(null);
-  const lastPostRef = useCallback((node: HTMLDivElement | null) => {
-    if (postsLoading || isFetchingNextPage) return;
-    if (observerRef.current) observerRef.current.disconnect();
-    observerRef.current = new IntersectionObserver((entries) => { if (entries[0].isIntersecting && hasNextPage) fetchNextPage(); });
-    if (node) observerRef.current.observe(node);
-  }, [postsLoading, isFetchingNextPage, hasNextPage, fetchNextPage]);
+  const lastPostRef = useCallback((node: HTMLDivElement | null) => { if (postsLoading || isFetchingNextPage) return; if (observerRef.current) observerRef.current.disconnect(); observerRef.current = new IntersectionObserver((entries) => { if (entries[0].isIntersecting && hasNextPage) fetchNextPage(); }); if (node) observerRef.current.observe(node); }, [postsLoading, isFetchingNextPage, hasNextPage, fetchNextPage]);
 
   if (loading) return <div className="flex items-center justify-center h-full text-[var(--text-primary)]">Загрузка...</div>;
   if (!userData) return null;
 
   const postItems = (data?.pages.flatMap(page => page.posts) || []).map(post => ({ id: post.id, type: 'post' as const, postData: post, createdAt: new Date(post.publishedAt) }));
   const pollItems = polls.map(poll => ({ id: poll.id, type: 'poll' as const, pollData: poll, createdAt: poll.createdAt?.toDate() || new Date() }));
-  const allItems = [...postItems, ...pollItems]
-    .filter((item, index, self) => self.findIndex(t => t.id === item.id && t.type === item.type) === index)
-    .sort((a, b) => {
-      const aPinned = a.type === 'post' ? (a.postData as any).pinned : false;
-      const bPinned = b.type === 'post' ? (b.postData as any).pinned : false;
-      if (aPinned && !bPinned) return -1;
-      if (!aPinned && bPinned) return 1;
-      return b.createdAt.getTime() - a.createdAt.getTime();
-    });
-
+  const allItems = [...postItems, ...pollItems].filter((item, index, self) => self.findIndex(t => t.id === item.id && t.type === item.type) === index).sort((a, b) => { const aP = a.type === 'post' ? (a.postData as any).pinned : false; const bP = b.type === 'post' ? (b.postData as any).pinned : false; if (aP && !bP) return -1; if (!aP && bP) return 1; return b.createdAt.getTime() - a.createdAt.getTime(); });
   const isOwnProfile = currentUser?.uid === userId;
 
   return (
     <div className="flex flex-col h-full">
-      <div className="p-6 bg-white/5 backdrop-blur-xl border-b border-[var(--border-color)]">
+      <div className="p-4 sm:p-6 bg-white/5 backdrop-blur-xl border-b border-[var(--border-color)]">
         <div className="max-w-2xl mx-auto">
           <button onClick={() => navigate(-1)} className="mb-4 flex items-center gap-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] p-2 rounded-lg hover:bg-white/10"><ArrowLeft size={20} /><span>Назад</span></button>
           <div className="flex items-center justify-between flex-wrap gap-4">
-            <div className="flex items-center gap-6">
-              <Avatar src={userData.photoURL} name={userData.displayName} size="lg" />
+            <div className="flex items-center gap-4 sm:gap-6">
+              <button onClick={() => userData.photoURL && setAvatarLightbox(true)} className="cursor-pointer flex-shrink-0">
+                <Avatar src={userData.photoURL} name={userData.displayName} size="lg" />
+              </button>
               <div>
-                <h2 className="text-2xl font-bold text-[var(--text-primary)]">{userData.displayName || 'Пользователь'}</h2>
+                <h2 className="text-xl sm:text-2xl font-bold text-[var(--text-primary)]">{userData.displayName || 'Пользователь'}</h2>
                 {username && <p className="text-[var(--text-secondary)]">@{username}</p>}
-                <p className="text-sm text-[var(--text-secondary)]">{friendsCount} друзей</p>
+                <p className="text-sm text-[var(--text-secondary)] mt-1">{friendsCount} друзей</p>
               </div>
             </div>
             {!isOwnProfile && (
               <div className="flex gap-2">
-                <button onClick={handleFriendAction} className={`px-4 py-2 rounded-xl text-sm font-medium transition-all flex items-center gap-2 ${friendStatus === 'accepted' ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30' : friendStatus === 'pending' ? 'bg-yellow-500/20 text-yellow-400' : 'bg-blue-500/20 text-blue-400 hover:bg-blue-500/30'}`}>
-                  {friendStatus === 'accepted' ? <><UserCheck size={18} /> В друзьях</> : friendStatus === 'pending' ? <><Clock size={18} /> Заявка отправлена</> : <><UserPlus size={18} /> Добавить в друзья</>}
+                <button onClick={handleFriendAction} className={`px-4 py-2 rounded-xl text-sm font-medium transition-all flex items-center gap-2 ${friendStatus === 'accepted' ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30' : friendStatus === 'pending' ? 'bg-yellow-500/20 text-yellow-400' : 'bg-accent/20 text-accent hover:bg-accent/30'}`}>
+                  {friendStatus === 'accepted' ? <><UserCheck size={18} /> В друзьях</> : friendStatus === 'pending' ? <><Clock size={18} /> Заявка отправлена</> : <><UserPlus size={18} /> Добавить</>}
                 </button>
-                <button onClick={handleBlock} className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${isBlocked ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30' : 'bg-white/5 text-[var(--text-secondary)] hover:bg-white/10'}`}>
-                  <Ban size={18} className="inline mr-1" />{isBlocked ? 'Разблокировать' : 'Блок'}
-                </button>
+                <button onClick={handleBlock} className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${isBlocked ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30' : 'bg-white/5 text-[var(--text-secondary)] hover:bg-white/10'}`}><Ban size={18} className="inline mr-1" />{isBlocked ? 'Разблок' : 'Блок'}</button>
               </div>
             )}
           </div>
         </div>
       </div>
-      <div className="flex-1 overflow-y-auto p-6">
+
+      <div className="flex-1 overflow-y-auto p-4 sm:p-6">
         <div className="max-w-2xl mx-auto">
-          {postsLoading ? (
-            <div className="space-y-4">
-              {[...Array(3)].map((_, i) => <div key={i} className="glass p-4 rounded-2xl animate-pulse"><div className="flex items-center gap-3 mb-3"><div className="w-10 h-10 rounded-full bg-white/10" /><div className="flex-1"><div className="h-4 w-24 bg-white/10 rounded mb-2" /><div className="h-3 w-16 bg-white/10 rounded" /></div></div></div>)}
-            </div>
-          ) : allItems.length === 0 ? (
-            <div className="text-center text-[var(--text-secondary)] py-8">У пользователя пока нет постов.</div>
-          ) : (
-            <>
-              {allItems.map((item, index) => {
-                const isLast = index === allItems.length - 1;
-                if (item.type === 'poll') return <div key={`poll-${item.id}`} className="mb-4"><PollDisplay pollId={item.id} /></div>;
-                return <div key={item.id} ref={isLast ? lastPostRef : undefined} className="mb-4"><PostCard post={item.postData} /></div>;
-              })}
-              {isFetchingNextPage && <div className="glass p-4 rounded-2xl animate-pulse"><div className="flex items-center gap-3"><div className="w-10 h-10 rounded-full bg-white/10" /><div className="h-4 w-24 bg-white/10 rounded" /></div></div>}
-            </>
-          )}
+          {postsLoading ? <div className="space-y-4">{[...Array(3)].map((_, i) => <div key={i} className="glass-heavy p-4 rounded-2xl animate-pulse"><div className="flex items-center gap-3 mb-3"><div className="w-10 h-10 rounded-full bg-white/10" /><div className="flex-1"><div className="h-4 w-24 bg-white/10 rounded mb-2" /><div className="h-3 w-16 bg-white/10 rounded" /></div></div></div>)}</div>
+          : allItems.length === 0 ? <div className="text-center text-[var(--text-secondary)] py-8">У пользователя пока нет постов.</div>
+          : <>{allItems.map((item, index) => { const isLast = index === allItems.length - 1; if (item.type === 'poll') return <div key={`poll-${item.id}`} className="mb-4"><PollDisplay pollId={item.id} /></div>; return <div key={item.id} ref={isLast ? lastPostRef : undefined} className="mb-4"><PostCard post={item.postData} /></div>; })}{isFetchingNextPage && <div className="glass-heavy p-4 rounded-2xl animate-pulse"><div className="flex items-center gap-3"><div className="w-10 h-10 rounded-full bg-white/10" /><div className="h-4 w-24 bg-white/10 rounded" /></div></div>}</>}
         </div>
       </div>
+
+      {avatarLightbox && userData.photoURL && (
+        <div className="fixed inset-0 z-[99999] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setAvatarLightbox(false)}>
+          <button onClick={() => setAvatarLightbox(false)} className="absolute top-4 right-4 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white"><X size={24} /></button>
+          <img src={userData.photoURL} alt={userData.displayName} className="max-w-[90%] max-h-[90%] object-contain rounded-2xl" onClick={(e) => e.stopPropagation()} />
+        </div>
+      )}
     </div>
   );
 };

@@ -41,7 +41,7 @@ export const Avatar: React.FC<AvatarProps> = ({ src, name, size = 'md', online }
       ) : null}
 
       <div
-        className={`${sizeClasses[size]} rounded-full bg-blue-500 flex items-center justify-center text-white font-medium fallback ${src ? 'hidden' : ''}`}
+        className={`${sizeClasses[size]} rounded-full bg-accent flex items-center justify-center text-white font-medium fallback ${src ? 'hidden' : ''}`}
       >
         {firstLetter}
       </div>

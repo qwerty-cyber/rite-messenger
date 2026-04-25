@@ -87,32 +87,20 @@ export const Friends: React.FC = () => {
     });
   };
 
-  const handleWriteMessage = async (friendId: string) => {
-    if (!currentUser) return;
+  // Friends.tsx — только изменённая функция handleWriteMessage
+const handleWriteMessage = async (friendId: string) => {
+  if (!currentUser) return;
+  const chatsQuery = query(collection(db, 'chats'), where('participants', 'array-contains', currentUser.uid));
+  const chatsSnapshot = await getDocs(chatsQuery);
+  // Ищем только личные чаты (не группы)
+  const existingChat = chatsSnapshot.docs.find(doc => {
+    const data = doc.data();
+    return !data.isGroup && data.participants.includes(friendId);
+  });
 
-    // Ищем существующий чат
-    const chatsQuery = query(
-      collection(db, 'chats'),
-      where('participants', 'array-contains', currentUser.uid)
-    );
-    const chatsSnapshot = await getDocs(chatsQuery);
-    const existingChat = chatsSnapshot.docs.find(doc => {
-      const data = doc.data();
-      return data.participants.includes(friendId);
-    });
-
-    if (existingChat) {
-      navigate(`/messages/${existingChat.id}`);
-    } else {
-      // Создаём новый чат
-      const newChat = await addDoc(collection(db, 'chats'), {
-        participants: [currentUser.uid, friendId],
-        createdAt: Timestamp.now(),
-        updatedAt: Timestamp.now(),
-      });
-      navigate(`/messages/${newChat.id}`);
-    }
-  };
+  if (existingChat) { navigate(`/messages/${existingChat.id}`); }
+  else { const newChat = await addDoc(collection(db, 'chats'), { participants: [currentUser.uid, friendId], createdAt: Timestamp.now(), updatedAt: Timestamp.now() }); navigate(`/messages/${newChat.id}`); }
+};
 
   if (!currentUser) return null;
 
@@ -126,7 +114,7 @@ export const Friends: React.FC = () => {
               onClick={() => setActiveTab('friends')}
               className={`px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300 ${
                 activeTab === 'friends'
-                  ? 'bg-blue-500/30 text-blue-400'
+                  ? 'bg-accent/30 text-accent'
                   : 'text-[#AAAAAA] hover:text-white hover:bg-white/5'
               }`}
             >
@@ -137,7 +125,7 @@ export const Friends: React.FC = () => {
               onClick={() => setActiveTab('requests')}
               className={`px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300 ${
                 activeTab === 'requests'
-                  ? 'bg-blue-500/30 text-blue-400'
+                  ? 'bg-accent/30 text-accent'
                   : 'text-[#AAAAAA] hover:text-white hover:bg-white/5'
               }`}
             >
@@ -172,7 +160,7 @@ export const Friends: React.FC = () => {
                     <div className="text-sm text-[#AAAAAA]">@{friend.friendData.username || 'пользователь'}</div>
                   </div>
                   <div className="flex gap-1 flex-shrink-0">
-  <button onClick={() => handleWriteMessage(friend.friendId)} className="px-2 py-1.5 bg-blue-500/20 text-blue-400 rounded-xl text-xs hover:bg-blue-500/30 transition-all">Написать</button>
+  <button onClick={() => handleWriteMessage(friend.friendId)} className="px-2 py-1.5 bg-accent/20 text-accent rounded-xl text-xs hover:bg-accent/30 transition-all">Написать</button>
   <button onClick={() => removeFriend(friend.id)} className="px-2 py-1.5 bg-red-500/20 text-red-400 rounded-xl text-xs hover:bg-red-500/30 transition-all">Удалить</button>
 </div>
                 </div>

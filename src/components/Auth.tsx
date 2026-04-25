@@ -114,14 +114,14 @@ export const Auth: React.FC = () => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium"
+            className="w-full py-3 bg-accent hover:bg-accent text-white rounded-xl font-medium"
           >
             {loading ? 'Загрузка...' : isLogin ? 'Войти' : 'Зарегистрироваться'}
           </button>
         </form>
         <p className="mt-4 text-center text-[#AAAAAA]">
           {isLogin ? 'Нет аккаунта? ' : 'Уже есть аккаунт? '}
-          <button onClick={() => setIsLogin(!isLogin)} className="text-blue-400 hover:underline">
+          <button onClick={() => setIsLogin(!isLogin)} className="text-accent hover:underline">
             {isLogin ? 'Зарегистрироваться' : 'Войти'}
           </button>
         </p>

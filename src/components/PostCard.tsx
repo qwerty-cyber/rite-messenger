@@ -24,6 +24,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
   const [liked, setLiked] = useState(currentUser ? post.likes?.includes(currentUser.uid) : false);
   const [showLikeAnimation, setShowLikeAnimation] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [menuPosition, setMenuPosition] = useState({ top: 0, right: 0 });
   const [showComments, setShowComments] = useState(false);
   const [showReport, setShowReport] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
@@ -31,18 +32,10 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
   const [bookmarkId, setBookmarkId] = useState<string | null>(null);
   const [showReactions, setShowReactions] = useState(false);
   const [reactions, setReactions] = useState<Record<string, string[]>>({});
-  const menuRef = useRef<HTMLDivElement>(null);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
 
   const isAuthor = currentUser?.uid === post.channel.id;
   const quickEmojis = ['👍', '❤️', '😂', '😮', '😢', '😡'];
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) setMenuOpen(false);
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
 
   useEffect(() => {
     const checkBookmark = async () => {
@@ -52,16 +45,11 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
       if (!snapshot.empty) { setSaved(true); setBookmarkId(snapshot.docs[0].id); }
     };
     checkBookmark();
-
     const loadReactions = async () => {
       const q = query(collection(db, 'reactions'), where('postId', '==', post.id));
       const snapshot = await getDocs(q);
       const reacts: Record<string, string[]> = {};
-      snapshot.docs.forEach(doc => {
-        const data = doc.data();
-        if (!reacts[data.emoji]) reacts[data.emoji] = [];
-        reacts[data.emoji].push(data.userId);
-      });
+      snapshot.docs.forEach(doc => { const data = doc.data(); if (!reacts[data.emoji]) reacts[data.emoji] = []; reacts[data.emoji].push(data.userId); });
       setReactions(reacts);
     };
     loadReactions();
@@ -82,7 +70,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
   const handleDelete = async () => {
     if (!isAuthor || !currentUser) return;
     if (!window.confirm("Вы уверены, что хотите удалить этот пост?")) return;
-    try { await deleteDoc(doc(db, "posts", post.id)); } catch (error) { console.error("Ошибка удаления:", error); alert("Не удалось удалить пост"); }
+    try { await deleteDoc(doc(db, "posts", post.id)); } catch (error) { console.error("Ошибка удаления:", error); }
   };
 
   const handlePin = async () => {
@@ -99,39 +87,42 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
 
   const handleReaction = async (emoji: string) => {
     if (!currentUser) return;
-    try {
-      const userReactionQuery = query(collection(db, 'reactions'), where('postId', '==', post.id), where('userId', '==', currentUser.uid));
-      const userSnapshot = await getDocs(userReactionQuery);
-      if (!userSnapshot.empty) {
-        const existingDoc = userSnapshot.docs[0];
-        const existingEmoji = existingDoc.data().emoji;
-        if (existingEmoji === emoji) { await deleteDoc(doc(db, 'reactions', existingDoc.id)); }
-        else { await updateDoc(doc(db, 'reactions', existingDoc.id), { emoji }); }
-      } else {
-        await addDoc(collection(db, 'reactions'), { postId: post.id, userId: currentUser.uid, emoji, createdAt: Timestamp.now() });
-      }
-      setShowReactions(false);
-      const q2 = query(collection(db, 'reactions'), where('postId', '==', post.id));
-      const snapshot2 = await getDocs(q2);
-      const reacts: Record<string, string[]> = {};
-      snapshot2.docs.forEach(doc => { const data = doc.data(); if (!reacts[data.emoji]) reacts[data.emoji] = []; reacts[data.emoji].push(data.userId); });
-      setReactions(reacts);
-    } catch (error) { console.error('Ошибка реакции:', error); }
+    const userReactionQuery = query(collection(db, 'reactions'), where('postId', '==', post.id), where('userId', '==', currentUser.uid));
+    const userSnapshot = await getDocs(userReactionQuery);
+    if (!userSnapshot.empty) {
+      const existingDoc = userSnapshot.docs[0];
+      if (existingDoc.data().emoji === emoji) { await deleteDoc(doc(db, 'reactions', existingDoc.id)); }
+      else { await updateDoc(doc(db, 'reactions', existingDoc.id), { emoji }); }
+    } else { await addDoc(collection(db, 'reactions'), { postId: post.id, userId: currentUser.uid, emoji, createdAt: Timestamp.now() }); }
+    setShowReactions(false);
+    const q2 = query(collection(db, 'reactions'), where('postId', '==', post.id));
+    const snapshot2 = await getDocs(q2);
+    const reacts: Record<string, string[]> = {};
+    snapshot2.docs.forEach(doc => { const data = doc.data(); if (!reacts[data.emoji]) reacts[data.emoji] = []; reacts[data.emoji].push(data.userId); });
+    setReactions(reacts);
+  };
+
+  const handleMenuToggle = () => {
+    if (!menuOpen && menuButtonRef.current) {
+      const rect = menuButtonRef.current.getBoundingClientRect();
+      setMenuPosition({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
+    }
+    setMenuOpen(!menuOpen);
   };
 
   const renderFormattedText = () => {
     const parts = post.text.split(/(\*\*.*?\*\*|\*.*?\*|\[.*?\]\(.*?\))/g);
     return parts.map((part, index) => {
-      if (part.startsWith("**") && part.endsWith("**")) return <strong key={index} className="text-[var(--text-primary)]">{part.slice(2, -2)}</strong>;
-      if (part.startsWith("*") && part.endsWith("*")) return <em key={index} className="text-[var(--text-primary)]">{part.slice(1, -1)}</em>;
+      if (part.startsWith("**") && part.endsWith("**")) return <strong key={index}>{part.slice(2, -2)}</strong>;
+      if (part.startsWith("*") && part.endsWith("*")) return <em key={index}>{part.slice(1, -1)}</em>;
       const linkMatch = part.match(/\[(.*?)\]\((.*?)\)/);
-      if (linkMatch) return <a key={index} href={linkMatch[2]} className="text-blue-400 hover:underline" target="_blank" rel="noopener noreferrer">{linkMatch[1]}</a>;
+      if (linkMatch) return <a key={index} href={linkMatch[2]} className="text-accent hover:underline" target="_blank" rel="noopener noreferrer">{linkMatch[1]}</a>;
       const processedText = part.split(/(#\w+|@\w+)/g).map((subPart, subIndex) => {
-        if (subPart.startsWith('#')) return <span key={`${index}-${subIndex}`} className="text-blue-400 hover:underline cursor-pointer" onClick={() => window.location.href = `/search?q=${encodeURIComponent(subPart)}`}>{subPart}</span>;
-        if (subPart.startsWith('@')) return <span key={`${index}-${subIndex}`} className="text-blue-400 hover:underline cursor-pointer" onClick={() => window.location.href = `/search?q=${encodeURIComponent(subPart)}`}>{subPart}</span>;
+        if (subPart.startsWith('#')) return <span key={`${index}-${subIndex}`} className="text-accent hover:underline cursor-pointer" onClick={() => window.location.href = `/search?q=${encodeURIComponent(subPart)}`}>{subPart}</span>;
+        if (subPart.startsWith('@')) return <span key={`${index}-${subIndex}`} className="text-accent hover:underline cursor-pointer" onClick={() => window.location.href = `/search?q=${encodeURIComponent(subPart)}`}>{subPart}</span>;
         return subPart;
       });
-      return <span key={index} className="text-[var(--text-primary)]">{processedText}</span>;
+      return <span key={index}>{processedText}</span>;
     });
   };
 
@@ -168,32 +159,16 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
         {(post as any).pinned && <div className="text-xs text-yellow-400 mb-2 flex items-center gap-1"><Pin size={12} /> Закреплено</div>}
 
         <div className="flex items-start gap-3">
-          <Link to={`/profile/${post.channel.id}`} className="flex-shrink-0"><Avatar src={post.channel.avatar} name={post.channel.name} size="md" /></Link>
+         <Link to={post.channel.id === currentUser?.uid ? '/profile' : `/profile/${post.channel.id}`} className="flex-shrink-0"><Avatar src={post.channel.avatar} name={post.channel.name} size="md" /></Link>
           <div className="flex-1">
             <div className="flex items-center gap-2">
-              <Link to={`/profile/${post.channel.id}`} className="hover:underline"><h3 className="font-semibold text-[var(--text-primary)]">{post.channel.name}</h3></Link>
+              <Link to={post.channel.id === currentUser?.uid ? '/profile' : `/profile/${post.channel.id}`} className="hover:underline"><h3 className="font-semibold text-[var(--text-primary)]">{post.channel.name}</h3></Link>
               <span className="text-xs text-[var(--text-secondary)]">·</span>
               <time className="text-xs text-[var(--text-secondary)]">{formattedDate}</time>
             </div>
             <div className="mt-2 text-[var(--text-primary)] opacity-90 text-sm leading-relaxed">{renderFormattedText()}</div>
           </div>
-          <div className="relative" ref={menuRef}>
-            <button onClick={() => setMenuOpen(!menuOpen)} className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors p-1 rounded-lg hover:bg-white/10"><MoreHorizontal className="w-5 h-5" /></button>
-            <AnimatePresence>
-              {menuOpen && (
-                <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} className="absolute right-0 mt-2 w-48 bg-[var(--bg-secondary)] backdrop-blur-xl rounded-xl shadow-xl border border-[var(--border-color)] overflow-hidden" style={{ zIndex: 99999 }}>
-                  <button onClick={() => { navigator.clipboard?.writeText(`https://app.example/post/${post.id}`); setMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-3 text-sm text-[var(--text-primary)] hover:bg-white/10"><Copy className="w-4 h-4" /> Скопировать ссылку</button>
-                  <button onClick={() => { setShowReport(true); setMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-400 hover:bg-white/10"><Flag className="w-4 h-4" /> Пожаловаться</button>
-                  {isAuthor && (
-                    <>
-                      <button onClick={() => { handlePin(); setMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-3 text-sm text-[var(--text-primary)] hover:bg-white/10">{(post as any).pinned ? <><PinOff size={16} /> Открепить</> : <><Pin size={16} /> Закрепить</>}</button>
-                      <button onClick={() => { handleDelete(); setMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-400 hover:bg-white/10"><Trash2 className="w-4 h-4" /> Удалить</button>
-                    </>
-                  )}
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
+          <button ref={menuButtonRef} onClick={handleMenuToggle} className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors p-1 rounded-lg hover:bg-white/10"><MoreHorizontal className="w-5 h-5" /></button>
         </div>
 
         {renderMedia()}
@@ -203,44 +178,50 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
             <button onClick={handleLike} className={`flex items-center gap-1.5 transition-colors ${liked ? "text-red-500" : "hover:text-[var(--text-primary)]"}`}><Heart className={`w-5 h-5 ${liked ? "fill-current" : ""}`} /><span className="text-sm">{post.likes?.length || 0}</span></button>
             <AnimatePresence>{showLikeAnimation && <motion.div initial={{ opacity: 1, y: 0, scale: 0.5 }} animate={{ opacity: 0, y: -30, scale: 1.5 }} exit={{ opacity: 0 }} transition={{ duration: 0.5 }} className="absolute left-1/2 -top-6 -translate-x-1/2 pointer-events-none"><span className="text-xl">❤️</span></motion.div>}</AnimatePresence>
           </div>
-
           <button onClick={() => setShowComments(true)} className="flex items-center gap-1.5 hover:text-[var(--text-primary)] transition-colors"><MessageCircle className="w-5 h-5" /><span className="text-sm">{post.commentsCount || 0}</span></button>
 
-         <div className="relative flex items-center gap-1">
-  {Object.keys(reactions).length > 0 && (
-    <div className="flex gap-0.5">
-      {Object.entries(reactions).map(([emoji, users]) => (
-        <button
-          key={emoji}
-          onClick={() => handleReaction(emoji)}
-          className="bg-white/10 hover:bg-white/20 rounded-full px-1.5 py-0.5 text-xs flex items-center gap-0.5 transition-colors"
-        >
-          <span>{emoji}</span>
-          <span className="text-[var(--text-secondary)]">{users.length}</span>
-        </button>
-      ))}
-    </div>
-  )}
-  <button onClick={() => setShowReactions(!showReactions)} className="flex items-center hover:text-[var(--text-primary)] transition-colors">
-    <span className="text-sm">😊</span>
-  </button>
-  {showReactions && (
-    <div className="absolute bottom-full left-0 mb-2 bg-[var(--bg-secondary)] backdrop-blur-xl rounded-xl shadow-xl border border-[var(--border-color)] p-2 flex gap-1 z-50" onClick={(e) => e.stopPropagation()}>
-      {quickEmojis.map(emoji => (
-        <button key={emoji} onClick={(e) => { e.stopPropagation(); handleReaction(emoji); }} className="p-1.5 hover:bg-white/10 rounded-lg text-lg transition-colors">{emoji}</button>
-      ))}
-    </div>
-  )}
-</div>
+          <div className="relative flex items-center gap-1">
+            {Object.keys(reactions).length > 0 && (
+              <div className="flex gap-0.5">
+                {Object.entries(reactions).slice(0, 3).map(([emoji, users]) => (
+                  <button key={emoji} onClick={() => handleReaction(emoji)} className="bg-white/10 hover:bg-white/20 rounded-full px-1.5 py-0.5 text-xs flex items-center gap-0.5 transition-colors">
+                    <span>{emoji}</span>
+                    {users.length > 1 && <span className="text-[var(--text-secondary)]">{users.length}</span>}
+                  </button>
+                ))}
+              </div>
+            )}
+            <button onClick={() => setShowReactions(!showReactions)} className="flex items-center hover:text-[var(--text-primary)] transition-colors"><span className="text-sm">😊</span></button>
+            {showReactions && (
+              <div className="absolute bottom-full left-0 mb-2 bg-[#1a1a3e] rounded-xl shadow-xl border border-[var(--border-color)] p-2 flex gap-1 z-50" onClick={(e) => e.stopPropagation()}>
+                {quickEmojis.map(emoji => <button key={emoji} onClick={(e) => { e.stopPropagation(); handleReaction(emoji); }} className="p-1.5 hover:bg-white/10 rounded-lg text-lg transition-colors">{emoji}</button>)}
+              </div>
+            )}
+          </div>
+
           <button className="flex items-center gap-1.5 hover:text-[var(--text-primary)] transition-colors"><Share2 className="w-5 h-5" /><span className="text-sm">Поделиться</span></button>
           <button onClick={toggleBookmark} className={`flex items-center gap-1.5 transition-colors ${saved ? 'text-yellow-400' : 'hover:text-[var(--text-primary)]'}`}>{saved ? <BookmarkCheck className="w-5 h-5 fill-current" /> : <Bookmark className="w-5 h-5" />}</button>
         </div>
 
-
-
         {showComments && <CommentsModal postId={post.id} onClose={() => setShowComments(false)} />}
         {showReport && <ReportModal postId={post.id} onClose={() => setShowReport(false)} />}
       </motion.article>
+
+      {menuOpen && (
+        <>
+          <div className="fixed inset-0 z-[99998]" onClick={() => setMenuOpen(false)} />
+          <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} className="fixed bg-[#1a1a3e] rounded-xl shadow-xl border border-[var(--border-color)] overflow-hidden py-1" style={{ zIndex: 99999, top: `${menuPosition.top}px`, right: `${menuPosition.right}px`, minWidth: '192px' }}>
+            <button onClick={() => { navigator.clipboard?.writeText(`https://app.example/post/${post.id}`); setMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-3 text-sm text-[var(--text-primary)] hover:bg-white/5"><Copy className="w-4 h-4" /> Скопировать ссылку</button>
+            <button onClick={() => { setShowReport(true); setMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-400 hover:bg-white/5"><Flag className="w-4 h-4" /> Пожаловаться</button>
+            {isAuthor && (
+              <>
+                <button onClick={() => { handlePin(); setMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-3 text-sm text-[var(--text-primary)] hover:bg-white/5">{(post as any).pinned ? <><PinOff size={16} /> Открепить</> : <><Pin size={16} /> Закрепить</>}</button>
+                <button onClick={() => { handleDelete(); setMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-400 hover:bg-white/5"><Trash2 className="w-4 h-4" /> Удалить</button>
+              </>
+            )}
+          </motion.div>
+        </>
+      )}
 
       <AnimatePresence>
         {lightboxIndex !== null && totalMedia > 0 && (
@@ -256,7 +237,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
             )}
             {totalMedia > 1 && (
               <div className="flex justify-center gap-2 p-4 bg-gradient-to-t from-black/50 to-transparent" onClick={(e) => e.stopPropagation()}>
-                {media.map((item, idx) => <button key={idx} onClick={() => setLightboxIndex(idx)} className={`w-12 h-12 rounded-md overflow-hidden border-2 transition-all ${idx === lightboxIndex ? 'border-blue-500 scale-110' : 'border-transparent opacity-70 hover:opacity-100'}`}><img src={item.url} alt="" className="w-full h-full object-cover" /></button>)}
+                {media.map((item, idx) => <button key={idx} onClick={() => setLightboxIndex(idx)} className={`w-12 h-12 rounded-md overflow-hidden border-2 transition-all ${idx === lightboxIndex ? 'border-accent scale-110' : 'border-transparent opacity-70 hover:opacity-100'}`}><img src={item.url} alt="" className="w-full h-full object-cover" /></button>)}
               </div>
             )}
           </motion.div>

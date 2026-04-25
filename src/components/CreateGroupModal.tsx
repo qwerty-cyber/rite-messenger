@@ -92,7 +92,7 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({ onClose }) =
         <div className="p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-bold text-[var(--text-primary)] flex items-center gap-2">
-              <Users size={20} className="text-blue-400" />
+              <Users size={20} className="text-accent" />
               Новая группа
             </h3>
             <button onClick={onClose} className="p-1 rounded-lg hover:bg-white/10 text-[var(--text-secondary)]">
@@ -120,14 +120,14 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({ onClose }) =
                     onClick={() => toggleUser(friend.id)}
                     className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all ${
                       selectedUsers.includes(friend.id)
-                        ? 'bg-blue-500/20 border border-blue-500/30'
+                        ? 'bg-accent/20 border border-accent/30'
                         : 'bg-white/5 hover:bg-white/10 border border-transparent'
                     }`}
                   >
                     <Avatar src={friend.photoURL} name={friend.displayName} size="sm" />
                     <span className="text-sm text-[var(--text-primary)]">{friend.displayName}</span>
                     {selectedUsers.includes(friend.id) && (
-                      <span className="ml-auto text-blue-400">✓</span>
+                      <span className="ml-auto text-accent">✓</span>
                     )}
                   </button>
                 ))}
@@ -137,7 +137,7 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({ onClose }) =
             <button
               onClick={handleCreate}
               disabled={loading || selectedUsers.length < 2 || !groupName.trim()}
-              className="w-full py-3 bg-blue-600 hover:bg-blue-700 rounded-xl font-medium text-white disabled:opacity-50 transition-colors"
+              className="w-full py-3 bg-accent hover:bg-blue-700 rounded-xl font-medium text-white disabled:opacity-50 transition-colors"
             >
               {loading ? 'Создание...' : 'Создать группу'}
             </button>

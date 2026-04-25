@@ -153,12 +153,12 @@ export const Search: React.FC = () => {
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
               placeholder={activeTab === 'people' ? 'Поиск по @username...' : 'Поиск по тексту постов...'}
-              className="flex-1 px-4 py-3 bg-white/10 backdrop-blur-md rounded-xl text-[var(--text-primary)] placeholder-[var(--text-secondary)] focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="flex-1 px-4 py-3 bg-white/10 backdrop-blur-md rounded-xl text-[var(--text-primary)] placeholder-[var(--text-secondary)] focus:outline-none focus:ring-2 focus:ring-accent"
             />
             <button
               onClick={handleSearch}
               disabled={loading}
-              className="px-6 py-3 bg-blue-500/30 hover:bg-blue-500/40 backdrop-blur-md rounded-xl font-medium disabled:opacity-50 transition-all"
+              className="px-6 py-3 bg-accent/30 hover:bg-accent/40 backdrop-blur-md rounded-xl font-medium disabled:opacity-50 transition-all"
             >
               <SearchIcon size={20} />
             </button>
@@ -169,7 +169,7 @@ export const Search: React.FC = () => {
               onClick={() => setActiveTab('people')}
               className={`px-4 py-2 rounded-xl text-sm font-medium transition-all flex items-center gap-2 ${
                 activeTab === 'people'
-                  ? 'bg-blue-500/30 text-blue-400'
+                  ? 'bg-accent/30 text-accent'
                   : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-white/5'
               }`}
             >
@@ -180,7 +180,7 @@ export const Search: React.FC = () => {
               onClick={() => setActiveTab('posts')}
               className={`px-4 py-2 rounded-xl text-sm font-medium transition-all flex items-center gap-2 ${
                 activeTab === 'posts'
-                  ? 'bg-blue-500/30 text-blue-400'
+                  ? 'bg-accent/30 text-accent'
                   : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-white/5'
               }`}
             >
@@ -202,7 +202,7 @@ export const Search: React.FC = () => {
           {!loading && results.map(item => (
             item.type === 'user' ? (
               <div key={item.id} className="glass p-4 flex items-center justify-between rounded-2xl">
-                <Link to={`/profile/${item.id}`} className="flex items-center gap-3 flex-1">
+                <Link to={item.id === currentUser?.uid ? '/profile' : `/profile/${item.id}`} className="flex items-center gap-3 flex-1">
                   <Avatar src={item.photoURL} name={item.displayName} size="md" />
                   <div>
                     <div className="font-medium text-[var(--text-primary)]">{item.displayName}</div>
@@ -211,7 +211,7 @@ export const Search: React.FC = () => {
                 </Link>
                 <button
                   onClick={() => handleWriteMessage(item.id)}
-                  className="px-4 py-2 bg-blue-500/20 text-blue-400 rounded-xl text-sm hover:bg-blue-500/30 transition-all"
+                  className="px-4 py-2 bg-accent/20 text-accent rounded-xl text-sm hover:bg-accent/30 transition-all"
                 >
                   Написать
                 </button>

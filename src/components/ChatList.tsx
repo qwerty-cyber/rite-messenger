@@ -101,8 +101,8 @@ export const ChatList: React.FC = () => {
                     <span className={`truncate ${hasUnread(chat) ? 'font-bold text-[var(--text-primary)]' : 'font-medium text-[var(--text-primary)]'}`}>
                       {getChatName(chat)}
                     </span>
-                    {hasUnread(chat) && <span className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0" />}
-                    {chat.isGroup && <span className="text-xs text-blue-400 flex-shrink-0">Группа</span>}
+                    {hasUnread(chat) && <span className="w-2 h-2 bg-accent rounded-full flex-shrink-0" />}
+                    {chat.isGroup && <span className="text-xs text-accent flex-shrink-0">Группа</span>}
                   </div>
                   <div className={`text-sm truncate ${hasUnread(chat) ? 'font-medium text-[var(--text-primary)]' : 'text-[var(--text-secondary)]'}`}>
                     {chat.lastMessage || 'Нет сообщений'}

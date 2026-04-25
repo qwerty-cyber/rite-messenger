@@ -169,13 +169,13 @@ export const CommentsModal: React.FC<CommentsModalProps> = ({ postId, onClose })
             value={newComment}
             onChange={(e) => setNewComment(e.target.value)}
             placeholder="Написать комментарий..."
-            className="flex-1 bg-white/10 rounded-full px-4 py-2 text-[var(--text-primary)] placeholder-[var(--text-secondary)] focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="flex-1 bg-white/10 rounded-full px-4 py-2 text-[var(--text-primary)] placeholder-[var(--text-secondary)] focus:outline-none focus:ring-2 focus:ring-accent"
             autoFocus
           />
           <button
             type="submit"
             disabled={loading || !newComment.trim()}
-            className="p-2 rounded-full bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex-shrink-0"
+            className="p-2 rounded-full bg-accent hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex-shrink-0"
           >
             <Send size={18} />
           </button>

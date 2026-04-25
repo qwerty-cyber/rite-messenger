@@ -89,7 +89,7 @@ export const AdminPanel: React.FC = () => {
                 onClick={() => setActiveTab(tab.key as any)}
                 className={`px-3 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all flex items-center gap-1.5 whitespace-nowrap flex-shrink-0 ${
                   activeTab === tab.key
-                    ? 'bg-blue-500/30 text-blue-400'
+                    ? 'bg-accent/30 text-accent'
                     : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-white/5'
                 }`}
               >
@@ -102,7 +102,7 @@ export const AdminPanel: React.FC = () => {
           {activeTab === 'stats' && (
             <div className="grid grid-cols-3 gap-3 sm:gap-4">
               <div className="glass p-4 sm:p-6 text-center rounded-2xl">
-                <Users size={32} className="mx-auto mb-2 text-blue-400" />
+                <Users size={32} className="mx-auto mb-2 text-accent" />
                 <div className="text-2xl sm:text-3xl font-bold text-[var(--text-primary)]">{stats.users}</div>
                 <div className="text-xs sm:text-sm text-[var(--text-secondary)]">Пользователей</div>
               </div>
@@ -172,7 +172,7 @@ export const AdminPanel: React.FC = () => {
                         {report.status === 'pending' ? 'Новая' : 'Рассмотрена'}
                       </span>
                       {report.status === 'pending' && (
-                        <button onClick={() => resolveReport(report.id)} className="px-3 py-1 bg-blue-500/20 text-blue-400 rounded-lg text-xs hover:bg-blue-500/30 transition-all">Рассмотреть</button>
+                        <button onClick={() => resolveReport(report.id)} className="px-3 py-1 bg-accent/20 text-accent rounded-lg text-xs hover:bg-accent/30 transition-all">Рассмотреть</button>
                       )}
                     </div>
                   </div>

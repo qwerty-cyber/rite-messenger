@@ -86,7 +86,7 @@ export const CreatePost: React.FC = () => {
           value={text}
           onChange={(e) => setText(e.target.value)}
           placeholder="Что у вас нового?"
-          className="w-full p-3 bg-white/10 rounded-xl text-white placeholder-[#AAAAAA] resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full p-3 bg-white/10 rounded-xl text-white placeholder-[#AAAAAA] resize-none focus:outline-none focus:ring-2 focus:ring-accent"
           rows={3}
         />
 
@@ -130,7 +130,7 @@ export const CreatePost: React.FC = () => {
           <button
             type="submit"
             disabled={loading || (!text.trim() && imageFiles.length === 0)}
-            className="ml-auto bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed px-5 py-1.5 rounded-xl text-white text-sm font-medium transition-colors"
+            className="ml-auto bg-accent hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed px-5 py-1.5 rounded-xl text-white text-sm font-medium transition-colors"
           >
             {loading ? '...' : 'Опубликовать'}
           </button>
